@@ -1,0 +1,137 @@
+"use client"
+
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
+
+export interface SectionColors {
+  swirlA: string
+  swirlB: string
+  chromaBase: string
+  chromaLeft: string
+  chromaRight: string
+}
+
+export interface ShaderSettings {
+  sections: {
+    hero: SectionColors
+    work: SectionColors
+    services: SectionColors
+    about: SectionColors
+    contact: SectionColors
+  }
+}
+
+// Default color schemes
+const DEFAULT_SETTINGS: ShaderSettings = {
+  sections: {
+    hero: {
+      swirlA: "#1275d8",
+      swirlB: "#e19136",
+      chromaBase: "#0066ff",
+      chromaLeft: "#e19136",
+      chromaRight: "#e19136",
+    },
+    work: {
+      swirlA: "#8b5cf6",
+      swirlB: "#ec4899",
+      chromaBase: "#a855f7",
+      chromaLeft: "#f472b6",
+      chromaRight: "#f472b6",
+    },
+    services: {
+      swirlA: "#10b981",
+      swirlB: "#14b8a6",
+      chromaBase: "#059669",
+      chromaLeft: "#0d9488",
+      chromaRight: "#0d9488",
+    },
+    about: {
+      swirlA: "#f59e0b",
+      swirlB: "#ef4444",
+      chromaBase: "#f97316",
+      chromaLeft: "#dc2626",
+      chromaRight: "#dc2626",
+    },
+    contact: {
+      swirlA: "#6366f1",
+      swirlB: "#06b6d4",
+      chromaBase: "#4f46e5",
+      chromaLeft: "#0891b2",
+      chromaRight: "#0891b2",
+    },
+  },
+}
+
+const STORAGE_KEY = "shader-settings"
+
+interface ShaderSettingsContextType {
+  settings: ShaderSettings
+  isLoaded: boolean
+  updateSection: (section: keyof ShaderSettings["sections"], colors: Partial<SectionColors>) => void
+  resetToDefaults: () => void
+}
+
+const ShaderSettingsContext = createContext<ShaderSettingsContextType | undefined>(undefined)
+
+export function ShaderSettingsProvider({ children }: { children: ReactNode }) {
+  const [settings, setSettings] = useState<ShaderSettings>(DEFAULT_SETTINGS)
+  const [isLoaded, setIsLoaded] = useState(false)
+
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        setSettings(parsed)
+      }
+    } catch (error) {
+      console.error("Failed to load shader settings:", error)
+    } finally {
+      setIsLoaded(true)
+    }
+  }, [])
+
+  // Save settings to localStorage and update state
+  const saveSettings = (newSettings: ShaderSettings) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings))
+      setSettings(newSettings)
+    } catch (error) {
+      console.error("Failed to save shader settings:", error)
+    }
+  }
+
+  // Update a specific section's colors
+  const updateSection = (section: keyof ShaderSettings["sections"], colors: Partial<SectionColors>) => {
+    const newSettings = {
+      ...settings,
+      sections: {
+        ...settings.sections,
+        [section]: {
+          ...settings.sections[section],
+          ...colors,
+        },
+      },
+    }
+    saveSettings(newSettings)
+  }
+
+  // Reset to default settings
+  const resetToDefaults = () => {
+    saveSettings(DEFAULT_SETTINGS)
+  }
+
+  return (
+    <ShaderSettingsContext.Provider value={{ settings, isLoaded, updateSection, resetToDefaults }}>
+      {children}
+    </ShaderSettingsContext.Provider>
+  )
+}
+
+export function useShaderSettings() {
+  const context = useContext(ShaderSettingsContext)
+  if (context === undefined) {
+    throw new Error("useShaderSettings must be used within a ShaderSettingsProvider")
+  }
+  return context
+}
