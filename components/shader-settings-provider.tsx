@@ -18,6 +18,11 @@ export interface ShaderSettings {
     about: SectionColors
     contact: SectionColors
   }
+  membrane: {
+    enabled: boolean // Toggle membrane mode on/off
+    depth: number    // 0-1, controls displacement intensity and lighting
+    ripple: number   // 0-1, controls circular wave strength
+  }
 }
 
 // Default color schemes
@@ -59,6 +64,11 @@ const DEFAULT_SETTINGS: ShaderSettings = {
       chromaRight: "#0891b2",
     },
   },
+  membrane: {
+    enabled: false,  // Default to original gradient mode
+    depth: 0.3,
+    ripple: 0.5,
+  },
 }
 
 const STORAGE_KEY = "shader-settings"
@@ -67,6 +77,7 @@ interface ShaderSettingsContextType {
   settings: ShaderSettings
   isLoaded: boolean
   updateSection: (section: keyof ShaderSettings["sections"], colors: Partial<SectionColors>) => void
+  updateMembrane: (params: Partial<ShaderSettings["membrane"]>) => void
   resetToDefaults: () => void
 }
 
@@ -82,7 +93,12 @@ export function ShaderSettingsProvider({ children }: { children: ReactNode }) {
       const stored = localStorage.getItem(STORAGE_KEY)
       if (stored) {
         const parsed = JSON.parse(stored)
-        setSettings(parsed)
+        // Merge with defaults to ensure membrane property exists
+        setSettings({
+          ...DEFAULT_SETTINGS,
+          sections: { ...DEFAULT_SETTINGS.sections, ...parsed.sections },
+          membrane: { ...DEFAULT_SETTINGS.membrane, ...(parsed.membrane || {}) },
+        })
       }
     } catch (error) {
       console.error("Failed to load shader settings:", error)
@@ -116,13 +132,25 @@ export function ShaderSettingsProvider({ children }: { children: ReactNode }) {
     saveSettings(newSettings)
   }
 
+  // Update membrane parameters
+  const updateMembrane = (params: Partial<ShaderSettings["membrane"]>) => {
+    const newSettings = {
+      ...settings,
+      membrane: {
+        ...settings.membrane,
+        ...params,
+      },
+    }
+    saveSettings(newSettings)
+  }
+
   // Reset to default settings
   const resetToDefaults = () => {
     saveSettings(DEFAULT_SETTINGS)
   }
 
   return (
-    <ShaderSettingsContext.Provider value={{ settings, isLoaded, updateSection, resetToDefaults }}>
+    <ShaderSettingsContext.Provider value={{ settings, isLoaded, updateSection, updateMembrane, resetToDefaults }}>
       {children}
     </ShaderSettingsContext.Provider>
   )

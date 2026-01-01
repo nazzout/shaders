@@ -9,7 +9,8 @@ import { AboutSection } from "@/components/sections/about-section"
 import { ContactSection } from "@/components/sections/contact-section"
 import { MagneticButton } from "@/components/magnetic-button"
 import { FloatingSettingsButton } from "@/components/floating-settings-button"
-import { ShaderSettingsProvider } from "@/components/shader-settings-provider"
+import { ShaderSettingsProvider, useShaderSettings } from "@/components/shader-settings-provider"
+import { WarpedGradientBackground } from "@/components/warped-gradient-background"
 import { useRef, useEffect, useState } from "react"
 import { useAudio } from "@/hooks/use-audio"
 
@@ -18,16 +19,38 @@ const ShaderBackground = dynamic(() => import("@/components/shader-background"),
   loading: () => null,
 })
 
-export default function Home() {
+function HomeContent() {
+  const { settings } = useShaderSettings()
+  const [time, setTime] = useState(0)
+
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [currentSection, setCurrentSection] = useState(0)
   const [isLoaded, setIsLoaded] = useState(false)
   const [webGLSupported, setWebGLSupported] = useState<boolean | null>(null)
+  const [showScrollHint, setShowScrollHint] = useState(true)
   const touchStartY = useRef(0)
   const touchStartX = useRef(0)
   const shaderContainerRef = useRef<HTMLDivElement>(null)
   const scrollThrottleRef = useRef<number>()
   const { audioData, isEnabled, enableAudio, disableAudio } = useAudio()
+
+  // Animation time for shader coordination
+  useEffect(() => {
+    const startTime = Date.now()
+    const updateTime = () => {
+      setTime((Date.now() - startTime) / 1000)
+      requestAnimationFrame(updateTime)
+    }
+    updateTime()
+  }, [])
+
+  // Fade out scroll hint after 4 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowScrollHint(false)
+    }, 4000)
+    return () => clearTimeout(timer)
+  }, [])
 
   useEffect(() => {
     const checkWebGLSupport = () => {
@@ -210,8 +233,7 @@ export default function Home() {
   }, [currentSection])
 
   return (
-    <ShaderSettingsProvider>
-      <main className="relative h-screen w-full overflow-hidden bg-background">
+    <main className="relative h-screen w-full overflow-hidden bg-background">
         <CustomCursor />
         <GrainOverlay />
         <FloatingSettingsButton />
@@ -222,16 +244,31 @@ export default function Home() {
           className={`fixed inset-0 z-0 transition-opacity duration-700 ${isLoaded ? "opacity-100" : "opacity-0"}`}
           style={{ contain: "strict" }}
         >
-          <ShaderBackground
-            audioVolume={audioData.volume}
-            audioBass={audioData.bass}
-            audioMid={audioData.mid}
-            audioTreble={audioData.treble}
-            audioTransient={audioData.transient}
-            audioFFTEnergy={audioData.fftEnergy}
-            audioSpectralCentroid={audioData.spectralCentroid}
-            currentSection={currentSection}
-          />
+          {settings.membrane?.enabled ? (
+            <WarpedGradientBackground
+              colors={{
+                swirlA: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.swirlA ?? '#1275d8',
+                swirlB: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.swirlB ?? '#e19136',
+                chromaBase: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.chromaBase ?? '#0066ff',
+              }}
+              depth={settings.membrane?.depth ?? 0.3}
+              ripple={settings.membrane?.ripple ?? 0.5}
+              audioEnergy={audioData.fftEnergy}
+              audioTransient={audioData.transient}
+              time={time}
+            />
+          ) : (
+            <ShaderBackground
+              audioVolume={audioData.volume}
+              audioBass={audioData.bass}
+              audioMid={audioData.mid}
+              audioTreble={audioData.treble}
+              audioTransient={audioData.transient}
+              audioFFTEnergy={audioData.fftEnergy}
+              audioSpectralCentroid={audioData.spectralCentroid}
+              currentSection={currentSection}
+            />
+          )}
           <div className="absolute inset-0 bg-black/20" />
         </div>
       ) : webGLSupported === false ? (
@@ -280,7 +317,9 @@ export default function Home() {
       >
         {/* Hero Section */}
         <section className="flex min-h-screen w-screen shrink-0 flex-col justify-end px-6 pb-16 pt-24 md:px-12 md:pb-24">
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-in fade-in duration-1000 delay-500">
+          <div className={`absolute bottom-8 left-1/2 -translate-x-1/2 transition-opacity duration-1000 ${
+            showScrollHint ? "opacity-100 animate-in fade-in delay-500" : "opacity-0 pointer-events-none"
+          }`}>
             <div className="flex items-center gap-2">
               <p className="font-mono text-xs text-foreground/80">Scroll to explore</p>
               <div className="flex h-6 w-12 items-center justify-center rounded-full border border-foreground/20 bg-foreground/15 backdrop-blur-md">
@@ -302,6 +341,13 @@ export default function Home() {
         }
       `}</style>
     </main>
+  )
+}
+
+export default function Home() {
+  return (
+    <ShaderSettingsProvider>
+      <HomeContent />
     </ShaderSettingsProvider>
   )
 }

@@ -18,6 +18,11 @@ export interface ShaderSettings {
     about: SectionColors
     contact: SectionColors
   }
+  membrane: {
+    enabled: boolean
+    depth: number
+    ripple: number
+  }
 }
 
 // Default color schemes
@@ -59,6 +64,11 @@ const DEFAULT_SETTINGS: ShaderSettings = {
       chromaRight: "#0891b2",
     },
   },
+  membrane: {
+    enabled: false,
+    depth: 0.3,
+    ripple: 0.5,
+  },
 }
 
 const STORAGE_KEY = "shader-settings"
@@ -73,7 +83,12 @@ export function useShaderSettings() {
       const stored = localStorage.getItem(STORAGE_KEY)
       if (stored) {
         const parsed = JSON.parse(stored)
-        setSettings(parsed)
+        // Merge with defaults to ensure membrane property exists
+        setSettings({
+          ...DEFAULT_SETTINGS,
+          sections: { ...DEFAULT_SETTINGS.sections, ...parsed.sections },
+          membrane: { ...DEFAULT_SETTINGS.membrane, ...(parsed.membrane || {}) },
+        })
       }
     } catch (error) {
       console.error("Failed to load shader settings:", error)

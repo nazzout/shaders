@@ -25,7 +25,7 @@ const COLOR_FIELDS = [
 ]
 
 export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProps) {
-  const { settings, updateSection, resetToDefaults } = useShaderSettings()
+  const { settings, updateSection, updateMembrane, resetToDefaults } = useShaderSettings()
 
   if (!isOpen) return null
 
@@ -62,6 +62,82 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
         {/* Content */}
         <div className="h-[calc(100vh-73px)] overflow-y-auto px-6 py-6">
           <div className="space-y-8">
+            {/* Membrane 3D Effect Controls */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground/70">
+                  3D Membrane Effect
+                </h3>
+                <button
+                  onClick={() => updateMembrane({ enabled: false, depth: 0.3, ripple: 0.5 })}
+                  className="text-xs text-foreground/60 hover:text-foreground transition-colors"
+                  title="Reset to default gradient"
+                >
+                  Reset to Default
+                </button>
+              </div>
+              <div className="space-y-4">
+                {/* Mode Toggle */}
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-foreground/80">Membrane Mode</label>
+                  <button
+                    onClick={() => updateMembrane({ enabled: !settings.membrane?.enabled })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      settings.membrane?.enabled ? "bg-blue-600" : "bg-foreground/20"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        settings.membrane?.enabled ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+                {/* Depth Slider */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-foreground/80">Depth</label>
+                    <span className="font-mono text-xs text-foreground/60">
+                      {(settings.membrane?.depth ?? 0.3).toFixed(2)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={settings.membrane?.depth ?? 0.3}
+                    onChange={(e) => updateMembrane({ depth: parseFloat(e.target.value) })}
+                    className="w-full cursor-pointer"
+                  />
+                  <p className="text-xs text-foreground/50">
+                    Controls height/displacement intensity and lighting strength
+                  </p>
+                </div>
+
+                {/* Ripple Slider */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-foreground/80">Ripple</label>
+                    <span className="font-mono text-xs text-foreground/60">
+                      {(settings.membrane?.ripple ?? 0.5).toFixed(2)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={settings.membrane?.ripple ?? 0.5}
+                    onChange={(e) => updateMembrane({ ripple: parseFloat(e.target.value) })}
+                    className="w-full cursor-pointer"
+                  />
+                  <p className="text-xs text-foreground/50">
+                    Controls circular wave amplitude and frequency
+                  </p>
+                </div>
+              </div>
+            </div>
             {(Object.keys(SECTION_NAMES) as Array<keyof typeof SECTION_NAMES>).map((sectionKey) => (
               <div key={sectionKey} className="space-y-4">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground/70">
