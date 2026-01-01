@@ -8,6 +8,8 @@ import { ServicesSection } from "@/components/sections/services-section"
 import { AboutSection } from "@/components/sections/about-section"
 import { ContactSection } from "@/components/sections/contact-section"
 import { MagneticButton } from "@/components/magnetic-button"
+import { FloatingSettingsButton } from "@/components/floating-settings-button"
+import { ShaderSettingsProvider } from "@/components/shader-settings-provider"
 import { useRef, useEffect, useState } from "react"
 import { useAudio } from "@/hooks/use-audio"
 
@@ -208,9 +210,11 @@ export default function Home() {
   }, [currentSection])
 
   return (
-    <main className="relative h-screen w-full overflow-hidden bg-background">
-      <CustomCursor />
-      <GrainOverlay />
+    <ShaderSettingsProvider>
+      <main className="relative h-screen w-full overflow-hidden bg-background">
+        <CustomCursor />
+        <GrainOverlay />
+        <FloatingSettingsButton />
 
       {webGLSupported === true ? (
         <div
@@ -223,6 +227,9 @@ export default function Home() {
             audioBass={audioData.bass}
             audioMid={audioData.mid}
             audioTreble={audioData.treble}
+            audioTransient={audioData.transient}
+            audioFFTEnergy={audioData.fftEnergy}
+            audioSpectralCentroid={audioData.spectralCentroid}
             currentSection={currentSection}
           />
           <div className="absolute inset-0 bg-black/20" />
@@ -295,5 +302,6 @@ export default function Home() {
         }
       `}</style>
     </main>
+    </ShaderSettingsProvider>
   )
 }
