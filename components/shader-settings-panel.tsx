@@ -25,7 +25,7 @@ const COLOR_FIELDS = [
 ]
 
 export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProps) {
-  const { settings, updateSection, updateMembrane, resetToDefaults } = useShaderSettings()
+  const { settings, updateSection, updateMembrane, updateNodalParticles, resetToDefaults } = useShaderSettings()
 
   if (!isOpen) return null
 
@@ -138,8 +138,130 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
                 </div>
               </div>
             </div>
+
+            {/* Nodal Particles Effect Controls */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground/70">
+                  Nodal Particles
+                </h3>
+                <button
+                  onClick={() => updateNodalParticles({ enabled: false, density: 0.5, size: 0.4, drift: 0.6, influence: 0.5 })}
+                  className="text-xs text-foreground/60 hover:text-foreground transition-colors"
+                  title="Reset to defaults"
+                >
+                  Reset
+                </button>
+              </div>
+              <div className="space-y-4">
+                {/* Mode Toggle */}
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-foreground/80">Nodal Particles</label>
+                  <button
+                    onClick={() => updateNodalParticles({ enabled: !settings.nodalParticles?.enabled })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      settings.nodalParticles?.enabled ? "bg-blue-600" : "bg-foreground/20"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        settings.nodalParticles?.enabled ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Density Slider */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-foreground/80">Density</label>
+                    <span className="font-mono text-xs text-foreground/60">
+                      {(settings.nodalParticles?.density ?? 0.5).toFixed(2)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={settings.nodalParticles?.density ?? 0.5}
+                    onChange={(e) => updateNodalParticles({ density: parseFloat(e.target.value) })}
+                    className="w-full cursor-pointer"
+                  />
+                  <p className="text-xs text-foreground/50">
+                    Particle count and spawn rate
+                  </p>
+                </div>
+
+                {/* Size Slider */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-foreground/80">Size</label>
+                    <span className="font-mono text-xs text-foreground/60">
+                      {(settings.nodalParticles?.size ?? 0.4).toFixed(2)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={settings.nodalParticles?.size ?? 0.4}
+                    onChange={(e) => updateNodalParticles({ size: parseFloat(e.target.value) })}
+                    className="w-full cursor-pointer"
+                  />
+                  <p className="text-xs text-foreground/50">
+                    Particle radius
+                  </p>
+                </div>
+
+                {/* Drift Slider */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-foreground/80">Drift</label>
+                    <span className="font-mono text-xs text-foreground/60">
+                      {(settings.nodalParticles?.drift ?? 0.6).toFixed(2)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={settings.nodalParticles?.drift ?? 0.6}
+                    onChange={(e) => updateNodalParticles({ drift: parseFloat(e.target.value) })}
+                    className="w-full cursor-pointer"
+                  />
+                  <p className="text-xs text-foreground/50">
+                    Flow along nodal field lines
+                  </p>
+                </div>
+
+                {/* Influence Slider */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-foreground/80">Influence</label>
+                    <span className="font-mono text-xs text-foreground/60">
+                      {(settings.nodalParticles?.influence ?? 0.5).toFixed(2)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={settings.nodalParticles?.influence ?? 0.5}
+                    onChange={(e) => updateNodalParticles({ influence: parseFloat(e.target.value) })}
+                    className="w-full cursor-pointer"
+                  />
+                  <p className="text-xs text-foreground/50">
+                    How strongly nodal field affects gradient
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {(Object.keys(SECTION_NAMES) as Array<keyof typeof SECTION_NAMES>).map((sectionKey) => (
-              <div key={sectionKey} className="space-y-4">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground/70">
                   {SECTION_NAMES[sectionKey]}
                 </h3>

@@ -23,6 +23,13 @@ export interface ShaderSettings {
     depth: number    // 0-1, controls displacement intensity and lighting
     ripple: number   // 0-1, controls circular wave strength
   }
+  nodalParticles: {
+    enabled: boolean // Toggle nodal particles on/off
+    density: number  // 0-1, particle count/spawn rate
+    size: number     // 0-1, particle radius
+    drift: number    // 0-1, flow along field lines
+    influence: number // 0-1, how strongly nodal field affects gradient
+  }
 }
 
 // Default color schemes
@@ -69,6 +76,13 @@ const DEFAULT_SETTINGS: ShaderSettings = {
     depth: 0.3,
     ripple: 0.5,
   },
+  nodalParticles: {
+    enabled: false,
+    density: 0.5,
+    size: 0.4,
+    drift: 0.6,
+    influence: 0.5,
+  },
 }
 
 const STORAGE_KEY = "shader-settings"
@@ -78,6 +92,7 @@ interface ShaderSettingsContextType {
   isLoaded: boolean
   updateSection: (section: keyof ShaderSettings["sections"], colors: Partial<SectionColors>) => void
   updateMembrane: (params: Partial<ShaderSettings["membrane"]>) => void
+  updateNodalParticles: (params: Partial<ShaderSettings["nodalParticles"]>) => void
   resetToDefaults: () => void
 }
 
@@ -144,13 +159,25 @@ export function ShaderSettingsProvider({ children }: { children: ReactNode }) {
     saveSettings(newSettings)
   }
 
+  // Update nodal particles parameters
+  const updateNodalParticles = (params: Partial<ShaderSettings["nodalParticles"]>) => {
+    const newSettings = {
+      ...settings,
+      nodalParticles: {
+        ...settings.nodalParticles,
+        ...params,
+      },
+    }
+    saveSettings(newSettings)
+  }
+
   // Reset to default settings
   const resetToDefaults = () => {
     saveSettings(DEFAULT_SETTINGS)
   }
 
   return (
-    <ShaderSettingsContext.Provider value={{ settings, isLoaded, updateSection, updateMembrane, resetToDefaults }}>
+    <ShaderSettingsContext.Provider value={{ settings, isLoaded, updateSection, updateMembrane, updateNodalParticles, resetToDefaults }}>
       {children}
     </ShaderSettingsContext.Provider>
   )

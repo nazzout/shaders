@@ -1,0 +1,356 @@
+"use client"
+
+import { useEffect, useRef } from "react"
+
+interface NodalParticlesGradientProps {
+  colors: {
+    swirlA: string
+    swirlB: string
+    chromaBase: string
+  }
+  // Nodal particle settings
+  density: number     // 0-1, particle count
+  size: number        // 0-1, particle radius
+  drift: number       // 0-1, flow along field
+  influence: number   // 0-1, gradient manipulation strength
+  // Audio
+  audioEnergy: number
+  audioTransient: number
+  audioBass: number
+  time: number
+}
+
+export function NodalParticlesGradient({
+  colors,
+  density,
+  size,
+  drift,
+  influence,
+  audioEnergy,
+  audioTransient,
+  audioBass,
+  time,
+}: NodalParticlesGradientProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const glRef = useRef<WebGLRenderingContext | null>(null)
+  const programRef = useRef<WebGLProgram | null>(null)
+  const uniformsRef = useRef<Record<string, WebGLUniformLocation | null>>({})
+  const animationFrameRef = useRef<number>()
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl") as WebGLRenderingContext | null
+    if (!gl) return
+    glRef.current = gl
+
+    // Vertex shader
+    const vertexShaderSource = `
+      attribute vec2 a_position;
+      varying vec2 v_uv;
+      void main() {
+        v_uv = a_position * 0.5 + 0.5;
+        gl_Position = vec4(a_position, 0.0, 1.0);
+      }
+    `
+
+    // Fragment shader with Chladni nodal field + particles + gradient integration
+    const fragmentShaderSource = `
+      precision highp float;
+      varying vec2 v_uv;
+      
+      uniform float u_time;
+      uniform float u_density;
+      uniform float u_size;
+      uniform float u_drift;
+      uniform float u_influence;
+      uniform float u_audioEnergy;
+      uniform float u_audioTransient;
+      uniform float u_audioBass;
+      uniform vec3 u_colorA;
+      uniform vec3 u_colorB;
+      uniform vec3 u_colorChroma;
+      
+      const float PI = 3.14159265359;
+      
+      // === CHLADNI / CYMATICS NODAL FIELD ===
+      // Returns nodal field value (closer to 0 = on nodal line)
+      float chladniField(vec2 uv, float time) {
+        // Shift to centered coordinates
+        vec2 p = (uv - 0.5) * 2.0;
+        
+        // Chladni mode numbers (n, m) - vary with time for animation
+        float n = 3.0 + sin(time * 0.2) * 1.0;
+        float m = 4.0 + cos(time * 0.15) * 1.0;
+        
+        // Chladni equation: sin(n*pi*x)*sin(m*pi*y) + sin(m*pi*x)*sin(n*pi*y)
+        float chladni1 = sin(PI * n * p.x) * sin(PI * m * p.y);
+        float chladni2 = sin(PI * m * p.x) * sin(PI * n * p.y);
+        float chladni = chladni1 + chladni2;
+        
+        // Add audio modulation\n        chladni += u_audioBass * 0.3 * sin(time * 2.0);
+        
+        return chladni;
+      }
+      
+      // Convert field to nodal mask (1 = on line, 0 = off line)
+      float getNodalMask(vec2 uv, float time) {
+        float field = chladniField(uv, time);
+        float lineWidth = 0.08 + u_audioTransient * 0.05;
+        return 1.0 - smoothstep(0.0, lineWidth, abs(field));
+      }
+      
+      // === NOISE FOR PARTICLE DISTRIBUTION ===
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+      }
+      
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(
+          mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+          mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
+          f.y
+        );
+      }
+      
+      // === FIELD GRADIENT FOR PARTICLE DRIFT ===
+      vec2 fieldGradient(vec2 uv, float time) {
+        float eps = 0.01;
+        float fx = chladniField(uv + vec2(eps, 0.0), time);
+        float fy = chladniField(uv + vec2(0.0, eps), time);
+        float f = chladniField(uv, time);
+        return vec2((fx - f) / eps, (fy - f) / eps);
+      }
+      
+      // === GPU PARTICLE SAMPLING ===
+      // Simple fragment-based approach: each grid cell spawns a particle
+      float renderParticles(vec2 uv, float time) {
+        // Particle grid density
+        float gridSize = 40.0 * (0.5 + u_density * 1.5);
+        vec2 grid = floor(uv * gridSize);
+        vec2 cellUV = fract(uv * gridSize);
+        
+        // Particle seed from grid position
+        float seed = hash(grid + vec2(0.0, time * 0.1));
+        
+        // Only spawn particle if density threshold met
+        if (seed > u_density) return 0.0;
+        
+        // Get nodal mask at grid center
+        vec2 gridCenter = (grid + 0.5) / gridSize;
+        float nodalMask = getNodalMask(gridCenter, time);
+        
+        // Particles concentrate on nodal lines
+        if (nodalMask < 0.3) return 0.0;
+        
+        // Particle drift along field gradient
+        vec2 gradient = fieldGradient(gridCenter, time);
+        vec2 flow = normalize(vec2(-gradient.y, gradient.x)) * u_drift; // Perpendicular to gradient
+        float flowPhase = hash(grid) * PI * 2.0;
+        vec2 offset = flow * sin(time * 0.5 + flowPhase) * 0.3;
+        
+        // Particle position with drift
+        vec2 particlePos = vec2(0.5) + offset;
+        float dist = length(cellUV - particlePos);
+        
+        // Particle radius
+        float radius = 0.02 + u_size * 0.08;
+        radius *= (0.7 + nodalMask * 0.3); // Size varies with field
+        
+        // Soft particle
+        float particle = 1.0 - smoothstep(radius * 0.5, radius, dist);
+        particle *= nodalMask; // Fade with field strength
+        
+        // Audio boost
+        particle *= 1.0 + u_audioTransient * 2.0;
+        
+        return particle;
+      }
+      
+      // === GRADIENT WITH NODAL INFLUENCE ===
+      vec3 sampleGradient(vec2 uv, float time) {
+        // Base radial gradient
+        vec2 center = vec2(0.5, 0.5);
+        float dist = length(uv - center);
+        float radial = smoothstep(0.0, 1.4, dist);
+        
+        // Add noise variation
+        float noiseVal = noise(uv * 3.0 + time * 0.1);
+        radial = mix(radial, radial * noiseVal, 0.3);
+        
+        // Mix colors
+        vec3 baseGradient = mix(u_colorA, u_colorB, radial);
+        
+        // Chroma influence
+        float chromaInfluence = noise(uv * 4.0 - time * 0.2) * 0.4;
+        baseGradient = mix(baseGradient, u_colorChroma, chromaInfluence * 0.3);
+        
+        // === NODAL FIELD MANIPULATION ===
+        float nodalMask = getNodalMask(uv, time);
+        
+        // Domain warp along nodal lines
+        vec2 gradient = fieldGradient(uv, time);
+        vec2 warp = vec2(-gradient.y, gradient.x) * nodalMask * u_influence * 0.1;
+        vec2 warpedUV = uv + warp;
+        
+        // Re-sample gradient with warped UV
+        dist = length(warpedUV - center);
+        radial = smoothstep(0.0, 1.4, dist);
+        baseGradient = mix(u_colorA, u_colorB, radial);
+        
+        // Glow/contrast boost on nodal lines
+        float glow = nodalMask * u_influence * 0.4;
+        baseGradient += baseGradient * glow;
+        
+        // Saturation boost
+        float saturation = 1.0 + nodalMask * u_influence * 0.5;
+        vec3 gray = vec3(dot(baseGradient, vec3(0.299, 0.587, 0.114)));
+        baseGradient = mix(gray, baseGradient, saturation);
+        
+        return baseGradient;
+      }
+      
+      void main() {
+        vec2 uv = v_uv;
+        float t = u_time;
+        
+        // Sample gradient with nodal field influence
+        vec3 gradientColor = sampleGradient(uv, t);
+        
+        // Render particles on top
+        float particles = renderParticles(uv, t);
+        
+        // Composite particles with gradient
+        vec3 particleColor = mix(u_colorChroma, vec3(1.0), 0.5);
+        vec3 finalColor = mix(gradientColor, particleColor, particles * 0.7);
+        
+        // Add subtle glow around particles
+        float particleGlow = particles * 0.3;
+        finalColor += gradientColor * particleGlow;
+        
+        gl_FragColor = vec4(finalColor, 1.0);
+      }
+    `
+
+    // Compile shaders
+    const vertexShader = gl.createShader(gl.VERTEX_SHADER)!
+    gl.shaderSource(vertexShader, vertexShaderSource)
+    gl.compileShader(vertexShader)
+
+    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER)!
+    gl.shaderSource(fragmentShader, fragmentShaderSource)
+    gl.compileShader(fragmentShader)
+
+    if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+      console.error("Fragment shader error:", gl.getShaderInfoLog(fragmentShader))
+    }
+
+    // Create program
+    const program = gl.createProgram()!
+    gl.attachShader(program, vertexShader)
+    gl.attachShader(program, fragmentShader)
+    gl.linkProgram(program)
+    gl.useProgram(program)
+    programRef.current = program
+
+    // Setup fullscreen quad
+    const positions = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1])
+    const positionBuffer = gl.createBuffer()
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
+    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW)
+
+    const positionLocation = gl.getAttribLocation(program, "a_position")
+    gl.enableVertexAttribArray(positionLocation)
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0)
+
+    // Get uniform locations
+    uniformsRef.current = {
+      u_time: gl.getUniformLocation(program, "u_time"),
+      u_density: gl.getUniformLocation(program, "u_density"),
+      u_size: gl.getUniformLocation(program, "u_size"),
+      u_drift: gl.getUniformLocation(program, "u_drift"),
+      u_influence: gl.getUniformLocation(program, "u_influence"),
+      u_audioEnergy: gl.getUniformLocation(program, "u_audioEnergy"),
+      u_audioTransient: gl.getUniformLocation(program, "u_audioTransient"),
+      u_audioBass: gl.getUniformLocation(program, "u_audioBass"),
+      u_colorA: gl.getUniformLocation(program, "u_colorA"),
+      u_colorB: gl.getUniformLocation(program, "u_colorB"),
+      u_colorChroma: gl.getUniformLocation(program, "u_colorChroma"),
+    }
+
+    // Handle resize
+    const handleResize = () => {
+      if (canvas && gl) {
+        canvas.width = canvas.offsetWidth
+        canvas.height = canvas.offsetHeight
+        gl.viewport(0, 0, canvas.width, canvas.height)
+      }
+    }
+    handleResize()
+    window.addEventListener("resize", handleResize)
+
+    return () => {
+      window.removeEventListener("resize", handleResize)
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+      if (gl && program) {
+        gl.deleteProgram(program)
+      }
+    }
+  }, [])
+
+  // Animation loop
+  useEffect(() => {
+    const gl = glRef.current
+    const program = programRef.current
+    if (!gl || !program) return
+
+    const hexToRgb = (hex: string): [number, number, number] => {
+      const r = parseInt(hex.slice(1, 3), 16) / 255
+      const g = parseInt(hex.slice(3, 5), 16) / 255
+      const b = parseInt(hex.slice(5, 7), 16) / 255
+      return [r, g, b]
+    }
+
+    const colorA = hexToRgb(colors.swirlA)
+    const colorB = hexToRgb(colors.swirlB)
+    const colorChroma = hexToRgb(colors.chromaBase)
+
+    const animate = () => {
+      if (!gl) return
+
+      gl.clearColor(0, 0, 0, 1)
+      gl.clear(gl.COLOR_BUFFER_BIT)
+
+      gl.uniform1f(uniformsRef.current.u_time, time)
+      gl.uniform1f(uniformsRef.current.u_density, density)
+      gl.uniform1f(uniformsRef.current.u_size, size)
+      gl.uniform1f(uniformsRef.current.u_drift, drift)
+      gl.uniform1f(uniformsRef.current.u_influence, influence)
+      gl.uniform1f(uniformsRef.current.u_audioEnergy, audioEnergy)
+      gl.uniform1f(uniformsRef.current.u_audioTransient, audioTransient)
+      gl.uniform1f(uniformsRef.current.u_audioBass, audioBass)
+      gl.uniform3f(uniformsRef.current.u_colorA, ...colorA)
+      gl.uniform3f(uniformsRef.current.u_colorB, ...colorB)
+      gl.uniform3f(uniformsRef.current.u_colorChroma, ...colorChroma)
+
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+
+      animationFrameRef.current = requestAnimationFrame(animate)
+    }
+    animate()
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+    }
+  }, [colors, density, size, drift, influence, audioEnergy, audioTransient, audioBass, time])
+
+  return <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+}
