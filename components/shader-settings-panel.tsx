@@ -9,11 +9,11 @@ interface ShaderSettingsPanelProps {
 }
 
 const SECTION_NAMES = {
-  hero: "Hero",
-  work: "Work",
-  services: "Services",
-  about: "About",
-  contact: "Contact",
+  hero: "01 — Hero",
+  work: "02 — Work",
+  services: "03 — Services",
+  about: "04 — About",
+  contact: "05 — Contact",
 }
 
 const COLOR_FIELDS = [
@@ -259,6 +259,13 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* Colorways Section Header */}
+            <div className="pt-4 border-t border-foreground/10">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground/70 mb-6">
+                Colorways
+              </h2>
             </div>
 
             {(Object.keys(SECTION_NAMES) as Array<keyof typeof SECTION_NAMES>).map((sectionKey) => (
