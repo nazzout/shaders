@@ -42,6 +42,9 @@ export interface ShaderSettings {
     speed: number    // 0-3, animation rate
     octaves: number  // 1-4, quality/detail
   }
+  cursor: {
+    strength: number // 0-1, cursor influence intensity
+  }
 }
 
 // Default color schemes
@@ -105,6 +108,9 @@ const DEFAULT_SETTINGS: ShaderSettings = {
     speed: 1.0,
     octaves: 2,
   },
+  cursor: {
+    strength: 0.35,
+  },
 }
 
 const STORAGE_KEY = "shader-settings"
@@ -118,6 +124,7 @@ interface ShaderSettingsContextType {
   updateNodalParticles: (params: Partial<ShaderSettings["nodalParticles"]>) => void
   updateChaos: (params: Partial<ShaderSettings["chaos"]>) => void
   updateTurbulence: (params: Partial<ShaderSettings["turbulence"]>) => void
+  updateCursor: (params: Partial<ShaderSettings["cursor"]>) => void
   resetToDefaults: () => void
 }
 
@@ -162,6 +169,7 @@ export function ShaderSettingsProvider({ children }: { children: ReactNode }) {
           },
           chaos: { ...DEFAULT_SETTINGS.chaos, ...(parsed.chaos || {}) },
           turbulence: { ...DEFAULT_SETTINGS.turbulence, ...(parsed.turbulence || {}) },
+          cursor: { ...DEFAULT_SETTINGS.cursor, ...(parsed.cursor || {}) },
         })
       }
     } catch (error) {
@@ -253,13 +261,25 @@ export function ShaderSettingsProvider({ children }: { children: ReactNode }) {
     saveSettings(newSettings)
   }
 
+  // Update cursor parameters
+  const updateCursor = (params: Partial<ShaderSettings["cursor"]>) => {
+    const newSettings = {
+      ...settings,
+      cursor: {
+        ...settings.cursor,
+        ...params,
+      },
+    }
+    saveSettings(newSettings)
+  }
+
   // Reset to default settings
   const resetToDefaults = () => {
     saveSettings(DEFAULT_SETTINGS)
   }
 
   return (
-    <ShaderSettingsContext.Provider value={{ settings, isLoaded, updateSection, setActiveEffect, updateMembrane, updateNodalParticles, updateChaos, updateTurbulence, resetToDefaults }}>
+    <ShaderSettingsContext.Provider value={{ settings, isLoaded, updateSection, setActiveEffect, updateMembrane, updateNodalParticles, updateChaos, updateTurbulence, updateCursor, resetToDefaults }}>
       {children}
     </ShaderSettingsContext.Provider>
   )

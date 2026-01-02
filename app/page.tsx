@@ -1,7 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { CustomCursor } from "@/components/custom-cursor"
+import { CustomCursor, CursorProvider, useCursorPosition } from "@/components/custom-cursor"
 import { GrainOverlay } from "@/components/grain-overlay"
 import { WorkSection } from "@/components/sections/work-section"
 import { ServicesSection } from "@/components/sections/services-section"
@@ -22,6 +22,7 @@ const ShaderBackground = dynamic(() => import("@/components/shader-background"),
 
 function HomeContent() {
   const { settings } = useShaderSettings()
+  const { position: cursorPosition, isOverUI: isInteractingWithUI } = useCursorPosition()
   const [time, setTime] = useState(0)
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -294,6 +295,10 @@ function HomeContent() {
               turbulenceScale={settings.turbulence?.scale ?? 2.0}
               turbulenceSpeed={settings.turbulence?.speed ?? 1.0}
               turbulenceOctaves={settings.turbulence?.octaves ?? 2}
+              cursorX={cursorPosition.x}
+              cursorY={cursorPosition.y}
+              cursorStrength={settings.cursor?.strength ?? 0.35}
+              isInteractingWithUI={isInteractingWithUI}
             />
           ) : settings.activeEffect === 'membrane' ? (
             <WarpedGradientBackground
@@ -314,6 +319,10 @@ function HomeContent() {
               turbulenceScale={settings.turbulence?.scale ?? 2.0}
               turbulenceSpeed={settings.turbulence?.speed ?? 1.0}
               turbulenceOctaves={settings.turbulence?.octaves ?? 2}
+              cursorX={cursorPosition.x}
+              cursorY={cursorPosition.y}
+              cursorStrength={settings.cursor?.strength ?? 0.35}
+              isInteractingWithUI={isInteractingWithUI}
             />
           ) : (
             <ShaderBackground
@@ -418,8 +427,10 @@ function HomeContent() {
 
 export default function Home() {
   return (
-    <ShaderSettingsProvider>
-      <HomeContent />
-    </ShaderSettingsProvider>
+    <CursorProvider>
+      <ShaderSettingsProvider>
+        <HomeContent />
+      </ShaderSettingsProvider>
+    </CursorProvider>
   )
 }
