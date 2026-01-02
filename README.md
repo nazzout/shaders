@@ -61,7 +61,7 @@ pnpm start
 
 ### Prerequisites
 
-- Node.js 18.17.0 or higher
+- Node.js 20 or higher (required for Next.js 15.5.9)
 - pnpm package manager
 
 ### Installation
@@ -96,7 +96,7 @@ This project is configured for deployment on Netlify using the `@netlify/plugin-
 
 - Build command: `pnpm build`
 - Publish directory: `.next`
-- Node.js version: 18.17.0+
+- Node.js version: 20+
 
 The `netlify.toml` file is pre-configured with the correct settings.
 

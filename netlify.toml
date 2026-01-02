@@ -6,8 +6,9 @@
   package = "@netlify/plugin-nextjs"
 
 # Ensure Node.js version compatible with Next.js 15.5.9
+# Next.js 15.5.9 requires: ^18.18.0 || ^19.8.0 || >= 20.0.0
 [build.environment]
-  NODE_VERSION = "18.17.0"
+  NODE_VERSION = "20"
 
 # Required for Next.js 15+ security patches (CVE-2025-55182)
 [context.production]
