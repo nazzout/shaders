@@ -104,6 +104,7 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
                     value={settings.chaos?.amount ?? 0.5}
                     onChange={(e) => updateChaos({ amount: parseFloat(e.target.value) })}
                     className="w-full cursor-pointer"
+                    aria-label="Chaos"
                   />
                   <p className="text-xs text-foreground/50">
                     Domain distortion, chromatic aberration, and audio overdrive

@@ -117,11 +117,13 @@ export function ShaderSettingsProvider({ children }: { children: ReactNode }) {
       const stored = localStorage.getItem(STORAGE_KEY)
       if (stored) {
         const parsed = JSON.parse(stored)
-        // Merge with defaults to ensure membrane property exists
+        // Merge with defaults to ensure all properties exist
         setSettings({
           ...DEFAULT_SETTINGS,
           sections: { ...DEFAULT_SETTINGS.sections, ...parsed.sections },
           membrane: { ...DEFAULT_SETTINGS.membrane, ...(parsed.membrane || {}) },
+          nodalParticles: { ...DEFAULT_SETTINGS.nodalParticles, ...(parsed.nodalParticles || {}) },
+          chaos: { ...DEFAULT_SETTINGS.chaos, ...(parsed.chaos || {}) },
         })
       }
     } catch (error) {

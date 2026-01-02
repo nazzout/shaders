@@ -1,0 +1,159 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { render, waitFor } from '@testing-library/react'
+import { NodalParticlesGradient } from '@/components/nodal-particles-gradient'
+
+describe('NodalParticlesGradient', () => {
+  const mockColors = {
+    swirlA: '#1275d8',
+    swirlB: '#e19136',
+    chromaBase: '#0066ff',
+  }
+
+  const defaultProps = {
+    colors: mockColors,
+    density: 0.5,
+    size: 0.4,
+    drift: 0.6,
+    influence: 0.5,
+    audioEnergy: 0.3,
+    audioTransient: 0.2,
+    audioBass: 0.4,
+    time: 1.0,
+    chaosEnabled: false,
+    chaosAmount: 0.5,
+  }
+
+  let mockGl: any
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    
+    mockGl = {
+      createShader: vi.fn(() => ({})),
+      shaderSource: vi.fn(),
+      compileShader: vi.fn(),
+      getShaderParameter: vi.fn(() => true),
+      getShaderInfoLog: vi.fn(() => ''),
+      createProgram: vi.fn(() => ({})),
+      attachShader: vi.fn(),
+      linkProgram: vi.fn(),
+      useProgram: vi.fn(),
+      createBuffer: vi.fn(() => ({})),
+      bindBuffer: vi.fn(),
+      bufferData: vi.fn(),
+      getAttribLocation: vi.fn(() => 0),
+      enableVertexAttribArray: vi.fn(),
+      vertexAttribPointer: vi.fn(),
+      getUniformLocation: vi.fn((program, name) => ({ name })),
+      uniform1f: vi.fn(),
+      uniform3f: vi.fn(),
+      clearColor: vi.fn(),
+      clear: vi.fn(),
+      drawArrays: vi.fn(),
+      viewport: vi.fn(),
+      deleteProgram: vi.fn(),
+      VERTEX_SHADER: 0,
+      FRAGMENT_SHADER: 1,
+      COMPILE_STATUS: 2,
+      ARRAY_BUFFER: 3,
+      STATIC_DRAW: 4,
+      FLOAT: 5,
+      COLOR_BUFFER_BIT: 6,
+      TRIANGLE_STRIP: 7,
+    }
+
+    HTMLCanvasElement.prototype.getContext = vi.fn(() => mockGl) as any
+  })
+
+  describe('chaos uniforms', () => {
+    it('should pass chaosEnabled=false and chaosAmount to WebGL uniforms when chaos is disabled', async () => {
+      render(<NodalParticlesGradient {...defaultProps} chaosEnabled={false} chaosAmount={0.5} />)
+
+      await waitFor(() => {
+        expect(mockGl.uniform1f).toHaveBeenCalled()
+      })
+
+      // Find the calls for chaos uniforms
+      const uniform1fCalls = mockGl.uniform1f.mock.calls
+      const chaosEnabledCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_chaosEnabled')
+      const chaosAmountCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_chaosAmount')
+
+      expect(chaosEnabledCall).toBeDefined()
+      expect(chaosEnabledCall?.[1]).toBe(0.0) // false = 0.0
+
+      expect(chaosAmountCall).toBeDefined()
+      expect(chaosAmountCall?.[1]).toBe(0.5)
+    })
+
+    it('should pass chaosEnabled=true to WebGL uniforms when chaos is enabled', async () => {
+      render(<NodalParticlesGradient {...defaultProps} chaosEnabled={true} chaosAmount={0.75} />)
+
+      await waitFor(() => {
+        expect(mockGl.uniform1f).toHaveBeenCalled()
+      })
+
+      const uniform1fCalls = mockGl.uniform1f.mock.calls
+      const chaosEnabledCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_chaosEnabled')
+      const chaosAmountCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_chaosAmount')
+
+      expect(chaosEnabledCall).toBeDefined()
+      expect(chaosEnabledCall?.[1]).toBe(1.0) // true = 1.0
+
+      expect(chaosAmountCall).toBeDefined()
+      expect(chaosAmountCall?.[1]).toBe(0.75)
+    })
+
+    it('should update chaos uniforms when props change', async () => {
+      const { rerender } = render(
+        <NodalParticlesGradient {...defaultProps} chaosEnabled={false} chaosAmount={0.3} />
+      )
+
+      await waitFor(() => {
+        expect(mockGl.uniform1f).toHaveBeenCalled()
+      })
+
+      // Clear previous calls
+      mockGl.uniform1f.mockClear()
+
+      // Update with chaos enabled
+      rerender(<NodalParticlesGradient {...defaultProps} chaosEnabled={true} chaosAmount={0.9} />)
+
+      await waitFor(() => {
+        expect(mockGl.uniform1f).toHaveBeenCalled()
+      })
+
+      const uniform1fCalls = mockGl.uniform1f.mock.calls
+      const chaosEnabledCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_chaosEnabled')
+      const chaosAmountCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_chaosAmount')
+
+      expect(chaosEnabledCall?.[1]).toBe(1.0)
+      expect(chaosAmountCall?.[1]).toBe(0.9)
+    })
+
+    it('should correctly handle chaos amount edge cases (0 and 1)', async () => {
+      const { rerender } = render(
+        <NodalParticlesGradient {...defaultProps} chaosEnabled={true} chaosAmount={0} />
+      )
+
+      await waitFor(() => {
+        expect(mockGl.uniform1f).toHaveBeenCalled()
+      })
+
+      let uniform1fCalls = mockGl.uniform1f.mock.calls
+      let chaosAmountCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_chaosAmount')
+      expect(chaosAmountCall?.[1]).toBe(0)
+
+      mockGl.uniform1f.mockClear()
+
+      rerender(<NodalParticlesGradient {...defaultProps} chaosEnabled={true} chaosAmount={1} />)
+
+      await waitFor(() => {
+        expect(mockGl.uniform1f).toHaveBeenCalled()
+      })
+
+      uniform1fCalls = mockGl.uniform1f.mock.calls
+      chaosAmountCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_chaosAmount')
+      expect(chaosAmountCall?.[1]).toBe(1)
+    })
+  })
+})
