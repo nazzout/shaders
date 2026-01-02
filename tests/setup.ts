@@ -19,6 +19,14 @@ global.requestAnimationFrame = vi.fn((cb) => {
 
 global.cancelAnimationFrame = vi.fn()
 
+// Mock document.elementFromPoint for touch event testing
+if (typeof document !== 'undefined') {
+  document.elementFromPoint = vi.fn((x: number, y: number) => {
+    // Return a mock element
+    return document.body
+  })
+}
+
 // Mock WebGL context
 HTMLCanvasElement.prototype.getContext = vi.fn((contextType) => {
   if (contextType === 'webgl' || contextType === 'experimental-webgl') {

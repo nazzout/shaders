@@ -18,6 +18,11 @@ describe('WarpedGradientBackground', () => {
     time: 1.0,
     chaosEnabled: false,
     chaosAmount: 0.5,
+    turbulenceEnabled: false,
+    turbulenceStrength: 0.5,
+    turbulenceScale: 2.0,
+    turbulenceSpeed: 1.0,
+    turbulenceOctaves: 2,
   }
 
   let mockGl: any
@@ -43,6 +48,7 @@ describe('WarpedGradientBackground', () => {
       vertexAttribPointer: vi.fn(),
       getUniformLocation: vi.fn((program, name) => ({ name })),
       uniform1f: vi.fn(),
+      uniform2f: vi.fn(),
       uniform3f: vi.fn(),
       clearColor: vi.fn(),
       clear: vi.fn(),
@@ -173,6 +179,251 @@ describe('WarpedGradientBackground', () => {
       expect(uniformNames).toContain('u_ripple')
       expect(uniformNames).toContain('u_audioEnergy')
       expect(uniformNames).toContain('u_audioTransient')
+    })
+  })
+
+  describe('cursor uniforms', () => {
+    it('should pass cursor position and strength uniforms to WebGL', async () => {
+      render(
+        <WarpedGradientBackground
+          {...defaultProps}
+          cursorX={0.6}
+          cursorY={0.4}
+          cursorStrength={0.7}
+          isInteractingWithUI={false}
+        />
+      )
+
+      await waitFor(() => {
+        expect(mockGl.uniform1f).toHaveBeenCalled()
+        expect(mockGl.uniform2f).toHaveBeenCalled()
+      })
+
+      const uniform2fCalls = mockGl.uniform2f.mock.calls
+      const uniform1fCalls = mockGl.uniform1f.mock.calls
+
+      // Check cursor position uniform (vec2)
+      const cursorPosCall = uniform2fCalls.find((call: any) => call[0]?.name === 'u_cursorPos')
+      expect(cursorPosCall).toBeDefined()
+      expect(cursorPosCall?.[1]).toBe(0.6) // cursorX
+      expect(cursorPosCall?.[2]).toBe(0.4) // cursorY
+
+      // Check cursor strength uniform
+      const cursorStrengthCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_cursorStrength')
+      expect(cursorStrengthCall).toBeDefined()
+      expect(cursorStrengthCall?.[1]).toBe(0.7)
+
+      // Check isInteractingWithUI uniform
+      const isInteractingCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_isInteractingWithUI')
+      expect(isInteractingCall).toBeDefined()
+      expect(isInteractingCall?.[1]).toBe(0.0) // false = 0.0
+    })
+
+    it('should apply cursor influence to height calculation when isInteractingWithUI is false', async () => {
+      render(
+        <WarpedGradientBackground
+          {...defaultProps}
+          cursorX={0.5}
+          cursorY={0.5}
+          cursorStrength={0.9}
+          isInteractingWithUI={false}
+        />
+      )
+
+      await waitFor(() => {
+        expect(mockGl.uniform1f).toHaveBeenCalled()
+      })
+
+      const uniform1fCalls = mockGl.uniform1f.mock.calls
+      const isInteractingCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_isInteractingWithUI')
+      
+      // Should be 0.0 (false), allowing cursor effect
+      expect(isInteractingCall?.[1]).toBe(0.0)
+    })
+
+    it('should disable cursor influence when isInteractingWithUI is true', async () => {
+      render(
+        <WarpedGradientBackground
+          {...defaultProps}
+          cursorX={0.5}
+          cursorY={0.5}
+          cursorStrength={0.9}
+          isInteractingWithUI={true}
+        />
+      )
+
+      await waitFor(() => {
+        expect(mockGl.uniform1f).toHaveBeenCalled()
+      })
+
+      const uniform1fCalls = mockGl.uniform1f.mock.calls
+      const isInteractingCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_isInteractingWithUI')
+      
+      // Should be 1.0 (true), disabling cursor effect
+      expect(isInteractingCall?.[1]).toBe(1.0)
+    })
+
+    it('should correctly update height field based on cursor position', async () => {
+      render(
+        <WarpedGradientBackground
+          {...defaultProps}
+          cursorX={0.25}
+          cursorY={0.75}
+          cursorStrength={0.8}
+          isInteractingWithUI={false}
+        />
+      )
+
+      await waitFor(() => {
+        expect(mockGl.uniform2f).toHaveBeenCalled()
+        expect(mockGl.uniform1f).toHaveBeenCalled()
+      })
+
+      const uniform2fCalls = mockGl.uniform2f.mock.calls
+      const uniform1fCalls = mockGl.uniform1f.mock.calls
+
+      const cursorPosCall = uniform2fCalls.find((call: any) => call[0]?.name === 'u_cursorPos')
+      const cursorStrengthCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_cursorStrength')
+
+      expect(cursorPosCall?.[1]).toBe(0.25)
+      expect(cursorPosCall?.[2]).toBe(0.75)
+      expect(cursorStrengthCall?.[1]).toBe(0.8)
+    })
+
+    it('should use default cursor values when not provided', async () => {
+      render(<WarpedGradientBackground {...defaultProps} />)
+
+      await waitFor(() => {
+        expect(mockGl.uniform2f).toHaveBeenCalled()
+        expect(mockGl.uniform1f).toHaveBeenCalled()
+      })
+
+      const uniform2fCalls = mockGl.uniform2f.mock.calls
+      const uniform1fCalls = mockGl.uniform1f.mock.calls
+
+      // Default values from component props
+      const cursorPosCall = uniform2fCalls.find((call: any) => call[0]?.name === 'u_cursorPos')
+      expect(cursorPosCall?.[1]).toBe(0.5) // default cursorX
+      expect(cursorPosCall?.[2]).toBe(0.5) // default cursorY
+
+      const cursorStrengthCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_cursorStrength')
+      expect(cursorStrengthCall?.[1]).toBe(0) // default cursorStrength
+
+      const isInteractingCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_isInteractingWithUI')
+      expect(isInteractingCall?.[1]).toBe(0.0) // default isInteractingWithUI
+    })
+
+    it('should update cursor uniforms when props change', async () => {
+      const { rerender } = render(
+        <WarpedGradientBackground
+          {...defaultProps}
+          cursorX={0.1}
+          cursorY={0.2}
+          cursorStrength={0.3}
+          isInteractingWithUI={false}
+        />
+      )
+
+      await waitFor(() => {
+        expect(mockGl.uniform2f).toHaveBeenCalled()
+      })
+
+      // Clear previous calls
+      mockGl.uniform2f.mockClear()
+      mockGl.uniform1f.mockClear()
+
+      // Update with new cursor values
+      rerender(
+        <WarpedGradientBackground
+          {...defaultProps}
+          cursorX={0.9}
+          cursorY={0.8}
+          cursorStrength={1.0}
+          isInteractingWithUI={true}
+        />
+      )
+
+      await waitFor(() => {
+        expect(mockGl.uniform2f).toHaveBeenCalled()
+        expect(mockGl.uniform1f).toHaveBeenCalled()
+      })
+
+      const uniform2fCalls = mockGl.uniform2f.mock.calls
+      const uniform1fCalls = mockGl.uniform1f.mock.calls
+
+      const cursorPosCall = uniform2fCalls.find((call: any) => call[0]?.name === 'u_cursorPos')
+      expect(cursorPosCall?.[1]).toBe(0.9)
+      expect(cursorPosCall?.[2]).toBe(0.8)
+
+      const cursorStrengthCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_cursorStrength')
+      expect(cursorStrengthCall?.[1]).toBe(1.0)
+
+      const isInteractingCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_isInteractingWithUI')
+      expect(isInteractingCall?.[1]).toBe(1.0)
+    })
+
+    it('should handle cursor strength of 0 (disabled cursor)', async () => {
+      render(
+        <WarpedGradientBackground
+          {...defaultProps}
+          cursorX={0.5}
+          cursorY={0.5}
+          cursorStrength={0}
+          isInteractingWithUI={false}
+        />
+      )
+
+      await waitFor(() => {
+        expect(mockGl.uniform1f).toHaveBeenCalled()
+      })
+
+      const uniform1fCalls = mockGl.uniform1f.mock.calls
+      const cursorStrengthCall = uniform1fCalls.find((call: any) => call[0]?.name === 'u_cursorStrength')
+      
+      expect(cursorStrengthCall?.[1]).toBe(0)
+    })
+
+    it('should handle edge case cursor positions (corners)', async () => {
+      const { rerender } = render(
+        <WarpedGradientBackground
+          {...defaultProps}
+          cursorX={0}
+          cursorY={0}
+          cursorStrength={0.5}
+          isInteractingWithUI={false}
+        />
+      )
+
+      await waitFor(() => {
+        expect(mockGl.uniform2f).toHaveBeenCalled()
+      })
+
+      let uniform2fCalls = mockGl.uniform2f.mock.calls
+      let cursorPosCall = uniform2fCalls.find((call: any) => call[0]?.name === 'u_cursorPos')
+      expect(cursorPosCall?.[1]).toBe(0)
+      expect(cursorPosCall?.[2]).toBe(0)
+
+      mockGl.uniform2f.mockClear()
+
+      // Test opposite corner
+      rerender(
+        <WarpedGradientBackground
+          {...defaultProps}
+          cursorX={1}
+          cursorY={1}
+          cursorStrength={0.5}
+          isInteractingWithUI={false}
+        />
+      )
+
+      await waitFor(() => {
+        expect(mockGl.uniform2f).toHaveBeenCalled()
+      })
+
+      uniform2fCalls = mockGl.uniform2f.mock.calls
+      cursorPosCall = uniform2fCalls.find((call: any) => call[0]?.name === 'u_cursorPos')
+      expect(cursorPosCall?.[1]).toBe(1)
+      expect(cursorPosCall?.[2]).toBe(1)
     })
   })
 })
