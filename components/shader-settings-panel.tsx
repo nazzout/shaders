@@ -9,11 +9,11 @@ interface ShaderSettingsPanelProps {
 }
 
 const SECTION_NAMES = {
-  hero: "Hero",
-  work: "Work",
-  services: "Services",
-  about: "About",
-  contact: "Contact",
+  hero: "01",
+  work: "02",
+  services: "03",
+  about: "04",
+  contact: "05",
 }
 
 const COLOR_FIELDS = [
@@ -25,18 +25,12 @@ const COLOR_FIELDS = [
 ]
 
 export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProps) {
-  const { settings, updateSection, updateMembrane, resetToDefaults } = useShaderSettings()
+  const { settings, updateSection, updateMembrane, updateNodalParticles, updateChaos, resetToDefaults } = useShaderSettings()
 
   if (!isOpen) return null
 
   return (
     <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
       {/* Panel */}
       <div className="fixed right-0 top-0 z-[70] h-screen w-full max-w-md overflow-hidden bg-background/95 shadow-2xl backdrop-blur-md sm:max-w-lg">
         {/* Header */}
@@ -62,6 +56,62 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
         {/* Content */}
         <div className="h-[calc(100vh-73px)] overflow-y-auto px-6 py-6">
           <div className="space-y-8">
+            {/* Chaos Mode Controls */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground/70">
+                  Chaos Mode
+                </h3>
+                <button
+                  onClick={() => updateChaos({ enabled: false, amount: 0.5 })}
+                  className="text-xs text-foreground/60 hover:text-foreground transition-colors"
+                  title="Reset to defaults"
+                >
+                  Reset
+                </button>
+              </div>
+              <div className="space-y-4">
+                {/* Mode Toggle */}
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-foreground/80">Chaos Mode</label>
+                  <button
+                    onClick={() => updateChaos({ enabled: !settings.chaos?.enabled })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      settings.chaos?.enabled ? "bg-red-600" : "bg-foreground/20"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        settings.chaos?.enabled ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Chaos Amount Slider */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-foreground/80">Chaos</label>
+                    <span className="font-mono text-xs text-foreground/60">
+                      {(settings.chaos?.amount ?? 0.5).toFixed(2)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={settings.chaos?.amount ?? 0.5}
+                    onChange={(e) => updateChaos({ amount: parseFloat(e.target.value) })}
+                    className="w-full cursor-pointer"
+                    aria-label="Chaos"
+                  />
+                  <p className="text-xs text-foreground/50">
+                    Domain distortion, chromatic aberration, and audio overdrive
+                  </p>
+                </div>
+              </div>
+            </div>
             {/* Membrane 3D Effect Controls */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -138,6 +188,136 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
                 </div>
               </div>
             </div>
+
+            {/* Nodal Particles Effect Controls */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground/70">
+                  Nodal Particles
+                </h3>
+                <button
+                  onClick={() => updateNodalParticles({ enabled: false, density: 0.5, size: 0.4, drift: 0.6, influence: 0.5 })}
+                  className="text-xs text-foreground/60 hover:text-foreground transition-colors"
+                  title="Reset to defaults"
+                >
+                  Reset
+                </button>
+              </div>
+              <div className="space-y-4">
+                {/* Mode Toggle */}
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-foreground/80">Nodal Particles</label>
+                  <button
+                    onClick={() => updateNodalParticles({ enabled: !settings.nodalParticles?.enabled })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      settings.nodalParticles?.enabled ? "bg-blue-600" : "bg-foreground/20"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        settings.nodalParticles?.enabled ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Density Slider */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-foreground/80">Density</label>
+                    <span className="font-mono text-xs text-foreground/60">
+                      {(settings.nodalParticles?.density ?? 0.5).toFixed(2)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={settings.nodalParticles?.density ?? 0.5}
+                    onChange={(e) => updateNodalParticles({ density: parseFloat(e.target.value) })}
+                    className="w-full cursor-pointer"
+                  />
+                  <p className="text-xs text-foreground/50">
+                    Particle count and spawn rate
+                  </p>
+                </div>
+
+                {/* Size Slider */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-foreground/80">Size</label>
+                    <span className="font-mono text-xs text-foreground/60">
+                      {(settings.nodalParticles?.size ?? 0.4).toFixed(2)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={settings.nodalParticles?.size ?? 0.4}
+                    onChange={(e) => updateNodalParticles({ size: parseFloat(e.target.value) })}
+                    className="w-full cursor-pointer"
+                  />
+                  <p className="text-xs text-foreground/50">
+                    Particle radius
+                  </p>
+                </div>
+
+                {/* Drift Slider */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-foreground/80">Drift</label>
+                    <span className="font-mono text-xs text-foreground/60">
+                      {(settings.nodalParticles?.drift ?? 0.6).toFixed(2)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={settings.nodalParticles?.drift ?? 0.6}
+                    onChange={(e) => updateNodalParticles({ drift: parseFloat(e.target.value) })}
+                    className="w-full cursor-pointer"
+                  />
+                  <p className="text-xs text-foreground/50">
+                    Flow along nodal field lines
+                  </p>
+                </div>
+
+                {/* Influence Slider */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-foreground/80">Influence</label>
+                    <span className="font-mono text-xs text-foreground/60">
+                      {(settings.nodalParticles?.influence ?? 0.5).toFixed(2)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={settings.nodalParticles?.influence ?? 0.5}
+                    onChange={(e) => updateNodalParticles({ influence: parseFloat(e.target.value) })}
+                    className="w-full cursor-pointer"
+                  />
+                  <p className="text-xs text-foreground/50">
+                    How strongly nodal field affects gradient
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Colorways Section Header */}
+            <div className="pt-4 border-t border-foreground/10">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground/70 mb-6">
+                Colorways
+              </h2>
+            </div>
+
             {(Object.keys(SECTION_NAMES) as Array<keyof typeof SECTION_NAMES>).map((sectionKey) => (
               <div key={sectionKey} className="space-y-4">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground/70">

@@ -11,6 +11,7 @@ import { MagneticButton } from "@/components/magnetic-button"
 import { FloatingSettingsButton } from "@/components/floating-settings-button"
 import { ShaderSettingsProvider, useShaderSettings } from "@/components/shader-settings-provider"
 import { WarpedGradientBackground } from "@/components/warped-gradient-background"
+import { NodalParticlesGradient } from "@/components/nodal-particles-gradient"
 import { useRef, useEffect, useState } from "react"
 import { useAudio } from "@/hooks/use-audio"
 
@@ -244,7 +245,25 @@ function HomeContent() {
           className={`fixed inset-0 z-0 transition-opacity duration-700 ${isLoaded ? "opacity-100" : "opacity-0"}`}
           style={{ contain: "strict" }}
         >
-          {settings.membrane?.enabled ? (
+          {settings.nodalParticles?.enabled ? (
+            <NodalParticlesGradient
+              colors={{
+                swirlA: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.swirlA ?? '#1275d8',
+                swirlB: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.swirlB ?? '#e19136',
+                chromaBase: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.chromaBase ?? '#0066ff',
+              }}
+              density={settings.nodalParticles?.density ?? 0.5}
+              size={settings.nodalParticles?.size ?? 0.4}
+              drift={settings.nodalParticles?.drift ?? 0.6}
+              influence={settings.nodalParticles?.influence ?? 0.5}
+              audioEnergy={audioData.fftEnergy}
+              audioTransient={audioData.transient}
+              audioBass={audioData.bass}
+              time={time}
+              chaosEnabled={settings.chaos?.enabled ?? false}
+              chaosAmount={settings.chaos?.amount ?? 0.5}
+            />
+          ) : settings.membrane?.enabled ? (
             <WarpedGradientBackground
               colors={{
                 swirlA: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.swirlA ?? '#1275d8',
@@ -256,6 +275,8 @@ function HomeContent() {
               audioEnergy={audioData.fftEnergy}
               audioTransient={audioData.transient}
               time={time}
+              chaosEnabled={settings.chaos?.enabled ?? false}
+              chaosAmount={settings.chaos?.amount ?? 0.5}
             />
           ) : (
             <ShaderBackground
@@ -267,9 +288,10 @@ function HomeContent() {
               audioFFTEnergy={audioData.fftEnergy}
               audioSpectralCentroid={audioData.spectralCentroid}
               currentSection={currentSection}
+              chaosEnabled={settings.chaos?.enabled ?? false}
+              chaosAmount={settings.chaos?.amount ?? 0.5}
             />
           )}
-          <div className="absolute inset-0 bg-black/20" />
         </div>
       ) : webGLSupported === false ? (
         <div
