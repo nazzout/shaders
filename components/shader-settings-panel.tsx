@@ -262,6 +262,7 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
             </div>
 
             {(Object.keys(SECTION_NAMES) as Array<keyof typeof SECTION_NAMES>).map((sectionKey) => (
+              <div key={sectionKey} className="space-y-4">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground/70">
                   {SECTION_NAMES[sectionKey]}
                 </h3>
