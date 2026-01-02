@@ -13,6 +13,8 @@ interface WarpedGradientBackgroundProps {
   audioEnergy: number    // 0-1, modulates wave speed
   audioTransient: number // 0-1, creates pulse waves
   time: number           // animation time for coordination
+  chaosEnabled: boolean
+  chaosAmount: number    // 0-1
 }
 
 export function WarpedGradientBackground({
@@ -22,6 +24,8 @@ export function WarpedGradientBackground({
   audioEnergy,
   audioTransient,
   time,
+  chaosEnabled,
+  chaosAmount,
 }: WarpedGradientBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const glRef = useRef<WebGLRenderingContext | null>(null)
@@ -60,6 +64,8 @@ export function WarpedGradientBackground({
       uniform vec3 u_colorA;
       uniform vec3 u_colorB;
       uniform vec3 u_colorChroma;
+      uniform float u_chaosEnabled;
+      uniform float u_chaosAmount;
       
       // Noise function for organic motion
       float hash(vec2 p) {
@@ -158,16 +164,38 @@ export function WarpedGradientBackground({
       }
       
       void main() {
+        vec2 uv = v_uv;
         float time = u_time;
         
+        // Apply chaos temporal desync
+        if (u_chaosEnabled > 0.5) {
+          time = u_time + u_chaosAmount * 3.0; // Offset by up to 3 seconds
+        }
+        
+        // Apply chaos domain distortion to base UV
+        if (u_chaosEnabled > 0.5) {
+          float chaosScale = u_chaosAmount * 3.5;
+          float n1 = noise(uv * chaosScale + time * 0.2);
+          float n2 = noise(uv * chaosScale * 1.4 - time * 0.15);
+          vec2 warp = vec2(n1 - 0.5, n2 - 0.5) * u_chaosAmount * 0.15;
+          uv = uv + warp;
+        }
+        
         // === 1. WARP UVs BASED ON MEMBRANE ===
-        vec2 uvWarped = warpUV(v_uv, time);
+        vec2 uvWarped = warpUV(uv, time);
         
         // === 2. SAMPLE GRADIENT WITH WARPED UVs ===
         vec3 gradientColor = sampleGradient(uvWarped);
         
+        // Apply chaos audio overdrive
+        float chaosAudioBoost = 1.0;
+        if (u_chaosEnabled > 0.5) {
+          chaosAudioBoost = 1.0 + pow(u_audioEnergy, 1.0 + u_chaosAmount * 2.5) * u_chaosAmount * 2.5;
+        }
+        gradientColor *= chaosAudioBoost;
+        
         // === 3. COMPUTE LIGHTING FROM MEMBRANE NORMAL ===
-        vec3 normal = getNormal(v_uv, time);
+        vec3 normal = getNormal(uv, time);
         
         // Light direction (from top-right-front)
         vec3 lightDir = normalize(vec3(0.6, 0.4, 1.0));
@@ -192,9 +220,19 @@ export function WarpedGradientBackground({
         litColor += gradientColor * rim; // Rim glow
         
         // Add depth-based darkening for contrast
-        float height = getHeight(v_uv, time);
+        float height = getHeight(uv, time);
         float depthDarken = 1.0 - abs(height) * u_depth * 0.4;
         litColor *= depthDarken;
+        
+        // Apply chaos chromatic aberration
+        if (u_chaosEnabled > 0.5) {
+          float aberration = u_chaosAmount * 0.015;
+          vec2 uvWarpedR = warpUV(uv + vec2(aberration, 0.0), time);
+          vec2 uvWarpedB = warpUV(uv - vec2(aberration, 0.0), time);
+          vec3 rColor = sampleGradient(uvWarpedR);
+          vec3 bColor = sampleGradient(uvWarpedB);
+          litColor = vec3(rColor.r, litColor.g, bColor.b);
+        }
         
         gl_FragColor = vec4(litColor, 1.0);
       }
@@ -241,6 +279,8 @@ export function WarpedGradientBackground({
       u_colorA: gl.getUniformLocation(program, "u_colorA"),
       u_colorB: gl.getUniformLocation(program, "u_colorB"),
       u_colorChroma: gl.getUniformLocation(program, "u_colorChroma"),
+      u_chaosEnabled: gl.getUniformLocation(program, "u_chaosEnabled"),
+      u_chaosAmount: gl.getUniformLocation(program, "u_chaosAmount"),
     }
 
     // Handle resize
@@ -297,6 +337,8 @@ export function WarpedGradientBackground({
       gl.uniform3f(uniformsRef.current.u_colorA, ...colorA)
       gl.uniform3f(uniformsRef.current.u_colorB, ...colorB)
       gl.uniform3f(uniformsRef.current.u_colorChroma, ...colorChroma)
+      gl.uniform1f(uniformsRef.current.u_chaosEnabled, chaosEnabled ? 1.0 : 0.0)
+      gl.uniform1f(uniformsRef.current.u_chaosAmount, chaosAmount)
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
 
@@ -309,7 +351,7 @@ export function WarpedGradientBackground({
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [colors, depth, ripple, audioEnergy, audioTransient, time])
+  }, [colors, depth, ripple, audioEnergy, audioTransient, time, chaosEnabled, chaosAmount])
 
   return <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 }

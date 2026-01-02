@@ -30,6 +30,10 @@ export interface ShaderSettings {
     drift: number    // 0-1, flow along field lines
     influence: number // 0-1, how strongly nodal field affects gradient
   }
+  chaos: {
+    enabled: boolean // Toggle chaos mode on/off
+    amount: number   // 0-1, chaos intensity
+  }
 }
 
 // Default color schemes
@@ -83,6 +87,10 @@ const DEFAULT_SETTINGS: ShaderSettings = {
     drift: 0.6,
     influence: 0.5,
   },
+  chaos: {
+    enabled: false,
+    amount: 0.5,
+  },
 }
 
 const STORAGE_KEY = "shader-settings"
@@ -93,6 +101,7 @@ interface ShaderSettingsContextType {
   updateSection: (section: keyof ShaderSettings["sections"], colors: Partial<SectionColors>) => void
   updateMembrane: (params: Partial<ShaderSettings["membrane"]>) => void
   updateNodalParticles: (params: Partial<ShaderSettings["nodalParticles"]>) => void
+  updateChaos: (params: Partial<ShaderSettings["chaos"]>) => void
   resetToDefaults: () => void
 }
 
@@ -171,13 +180,25 @@ export function ShaderSettingsProvider({ children }: { children: ReactNode }) {
     saveSettings(newSettings)
   }
 
+  // Update chaos parameters
+  const updateChaos = (params: Partial<ShaderSettings["chaos"]>) => {
+    const newSettings = {
+      ...settings,
+      chaos: {
+        ...settings.chaos,
+        ...params,
+      },
+    }
+    saveSettings(newSettings)
+  }
+
   // Reset to default settings
   const resetToDefaults = () => {
     saveSettings(DEFAULT_SETTINGS)
   }
 
   return (
-    <ShaderSettingsContext.Provider value={{ settings, isLoaded, updateSection, updateMembrane, updateNodalParticles, resetToDefaults }}>
+    <ShaderSettingsContext.Provider value={{ settings, isLoaded, updateSection, updateMembrane, updateNodalParticles, updateChaos, resetToDefaults }}>
       {children}
     </ShaderSettingsContext.Provider>
   )

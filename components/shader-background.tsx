@@ -13,6 +13,8 @@ interface ShaderBackgroundProps {
   audioFFTEnergy?: number
   audioSpectralCentroid?: number
   currentSection?: number
+  chaosEnabled?: boolean
+  chaosAmount?: number
 }
 
 export default function ShaderBackground({
@@ -24,6 +26,8 @@ export default function ShaderBackground({
   audioFFTEnergy = 0,
   audioSpectralCentroid = 0,
   currentSection = 0,
+  chaosEnabled = false,
+  chaosAmount = 0.5,
 }: ShaderBackgroundProps) {
   // Load color schemes from settings hook - this will reactively update
   const { settings } = useShaderSettings()
@@ -134,32 +138,52 @@ export default function ShaderBackground({
   // Spectral brightness affects detail and intensity
   const brightnessBoost = audioSpectralCentroid * 0.8
 
+  // Apply chaos audio overdrive (non-linear power curve)
+  const chaosAudioOverdrive = chaosEnabled ? chaosAmount : 0
+  const audioVolumeChaos = Math.pow(audioVolume, 1.0 + chaosAudioOverdrive * 2.0)
+  const audioBassChaos = Math.pow(audioBass, 1.0 + chaosAudioOverdrive * 2.0)
+  const audioMidChaos = Math.pow(audioMid, 1.0 + chaosAudioOverdrive * 1.5)
+  const audioTrebleChaos = Math.pow(audioTreble, 1.0 + chaosAudioOverdrive * 1.5)
+  
+  // Chaos domain distortion (adds extra noise modulation)
+  const chaosDomainWarp = chaosEnabled ? chaosAmount * 0.5 : 0
+  const chaosNoiseBoost = noiseModulation1 * chaosDomainWarp * 2.0
+  const chaosPhaseBoost = phaseModulation * chaosDomainWarp * 1.5
+  
+  // Chaos temporal desync (offset parameters over time)
+  const chaosTemporalOffset = chaosEnabled ? Math.sin(chaos.phase * 3.0) * chaosAmount * 0.3 : 0
+
   // Map audio data to shader parameters with expanded modulation depth
   // Speed: driven by volume, transients, and chaos
-  const speed = 0.6 + audioVolume * 1.2 + noiseModulation1 + transientBoost * 0.5
+  const speed = 0.6 + audioVolumeChaos * 1.2 + noiseModulation1 + transientBoost * 0.5 + chaosNoiseBoost
   
   // Detail: mid frequencies + brightness + chaos
-  const detail = 0.7 + audioMid * 0.9 + brightnessBoost + noiseModulation2
+  const detail = 0.7 + audioMidChaos * 0.9 + brightnessBoost + noiseModulation2 + chaosPhaseBoost
   
   // Blend: bass-heavy with strong chaos influence
-  const blend = 45 + audioBass * 60 + noiseModulation3 * 35 + turbulenceModulation * 20
+  const blend = 45 + audioBassChaos * 60 + noiseModulation3 * 35 + turbulenceModulation * 20 + chaosDomainWarp * 30
   
   // Intensity: treble + brightness + transients
-  const intensity = 0.8 + audioTreble * 0.7 + brightnessBoost * 0.5 + noiseModulation4 + transientBoost * 0.3
+  const intensity = 0.8 + audioTrebleChaos * 0.7 + brightnessBoost * 0.5 + noiseModulation4 + transientBoost * 0.3 + chaosDomainWarp * 0.4
   
   // Radius: volume-driven with FFT chaos
-  const radius = 1.6 + audioVolume * 1.2 + phaseModulation + fftDrivenChaos * 0.6
+  const radius = 1.6 + audioVolumeChaos * 1.2 + phaseModulation + fftDrivenChaos * 0.6 + chaosTemporalOffset
   
   // Momentum: bass + chaos + transient bursts
-  const momentum = 20 + audioBass * 45 + noiseModulation1 * 25 + turbulenceModulation * 15
+  const momentum = 20 + audioBassChaos * 45 + noiseModulation1 * 25 + turbulenceModulation * 15 + chaosDomainWarp * 20
 
   // Expanded positional drift with FFT and transient influence
-  const coarseX = 40 + Math.sin(chaos.drift1) * (chaosStrength * 8 + transientBoost * 6)
-  const coarseY = 40 + Math.cos(chaos.drift2) * (chaosStrength * 8 + fftDrivenChaos * 5)
-  const mediumX = 40 + Math.sin(chaos.drift3 + audioSpectralCentroid * Math.PI) * (chaosStrength * 7)
-  const mediumY = 40 + Math.cos(chaos.drift4 + audioBass * Math.PI) * (chaosStrength * 7)
-  const fineX = 40 + Math.sin(chaos.phase + chaos.drift5) * (chaosStrength * 6 + turbulenceModulation * 4)
-  const fineY = 40 + Math.cos(chaos.phase + chaos.drift6) * (chaosStrength * 6 + noiseModulation6 * 3)
+  // Apply chaos temporal desync to drift (each layer offset differently)
+  const chaosDriftOffset1 = chaosEnabled ? Math.sin(chaos.phase * 2.5) * chaosAmount * 5 : 0
+  const chaosDriftOffset2 = chaosEnabled ? Math.cos(chaos.phase * 3.0) * chaosAmount * 5 : 0
+  const chaosDriftOffset3 = chaosEnabled ? Math.sin(chaos.phase * 2.0) * chaosAmount * 4 : 0
+  
+  const coarseX = 40 + Math.sin(chaos.drift1) * (chaosStrength * 8 + transientBoost * 6) + chaosDriftOffset1
+  const coarseY = 40 + Math.cos(chaos.drift2) * (chaosStrength * 8 + fftDrivenChaos * 5) + chaosDriftOffset1
+  const mediumX = 40 + Math.sin(chaos.drift3 + audioSpectralCentroid * Math.PI) * (chaosStrength * 7) + chaosDriftOffset2
+  const mediumY = 40 + Math.cos(chaos.drift4 + audioBass * Math.PI) * (chaosStrength * 7) + chaosDriftOffset2
+  const fineX = 40 + Math.sin(chaos.phase + chaos.drift5) * (chaosStrength * 6 + turbulenceModulation * 4) + chaosDriftOffset3
+  const fineY = 40 + Math.cos(chaos.phase + chaos.drift6) * (chaosStrength * 6 + noiseModulation6 * 3) + chaosDriftOffset3
 
   // Create a key from colors to force shader re-render when colors change
   const colorKey = `${colors.swirlA}-${colors.swirlB}-${colors.chromaBase}-${colors.chromaLeft}-${colors.chromaRight}`

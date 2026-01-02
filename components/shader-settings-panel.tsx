@@ -9,11 +9,11 @@ interface ShaderSettingsPanelProps {
 }
 
 const SECTION_NAMES = {
-  hero: "01 — Hero",
-  work: "02 — Work",
-  services: "03 — Services",
-  about: "04 — About",
-  contact: "05 — Contact",
+  hero: "01",
+  work: "02",
+  services: "03",
+  about: "04",
+  contact: "05",
 }
 
 const COLOR_FIELDS = [
@@ -25,18 +25,12 @@ const COLOR_FIELDS = [
 ]
 
 export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProps) {
-  const { settings, updateSection, updateMembrane, updateNodalParticles, resetToDefaults } = useShaderSettings()
+  const { settings, updateSection, updateMembrane, updateNodalParticles, updateChaos, resetToDefaults } = useShaderSettings()
 
   if (!isOpen) return null
 
   return (
     <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
       {/* Panel */}
       <div className="fixed right-0 top-0 z-[70] h-screen w-full max-w-md overflow-hidden bg-background/95 shadow-2xl backdrop-blur-md sm:max-w-lg">
         {/* Header */}
@@ -62,6 +56,61 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
         {/* Content */}
         <div className="h-[calc(100vh-73px)] overflow-y-auto px-6 py-6">
           <div className="space-y-8">
+            {/* Chaos Mode Controls */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground/70">
+                  Chaos Mode
+                </h3>
+                <button
+                  onClick={() => updateChaos({ enabled: false, amount: 0.5 })}
+                  className="text-xs text-foreground/60 hover:text-foreground transition-colors"
+                  title="Reset to defaults"
+                >
+                  Reset
+                </button>
+              </div>
+              <div className="space-y-4">
+                {/* Mode Toggle */}
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-foreground/80">Chaos Mode</label>
+                  <button
+                    onClick={() => updateChaos({ enabled: !settings.chaos?.enabled })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      settings.chaos?.enabled ? "bg-red-600" : "bg-foreground/20"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        settings.chaos?.enabled ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Chaos Amount Slider */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-foreground/80">Chaos</label>
+                    <span className="font-mono text-xs text-foreground/60">
+                      {(settings.chaos?.amount ?? 0.5).toFixed(2)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={settings.chaos?.amount ?? 0.5}
+                    onChange={(e) => updateChaos({ amount: parseFloat(e.target.value) })}
+                    className="w-full cursor-pointer"
+                  />
+                  <p className="text-xs text-foreground/50">
+                    Domain distortion, chromatic aberration, and audio overdrive
+                  </p>
+                </div>
+              </div>
+            </div>
             {/* Membrane 3D Effect Controls */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">

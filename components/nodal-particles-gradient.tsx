@@ -18,6 +18,9 @@ interface NodalParticlesGradientProps {
   audioTransient: number
   audioBass: number
   time: number
+  // Chaos
+  chaosEnabled: boolean
+  chaosAmount: number // 0-1
 }
 
 export function NodalParticlesGradient({
@@ -30,6 +33,8 @@ export function NodalParticlesGradient({
   audioTransient,
   audioBass,
   time,
+  chaosEnabled,
+  chaosAmount,
 }: NodalParticlesGradientProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const glRef = useRef<WebGLRenderingContext | null>(null)
@@ -71,6 +76,8 @@ export function NodalParticlesGradient({
       uniform vec3 u_colorA;
       uniform vec3 u_colorB;
       uniform vec3 u_colorChroma;
+      uniform float u_chaosEnabled;
+      uniform float u_chaosAmount;
       
       const float PI = 3.14159265359;
       
@@ -173,9 +180,19 @@ export function NodalParticlesGradient({
       
       // === GRADIENT WITH NODAL INFLUENCE ===
       vec3 sampleGradient(vec2 uv, float time) {
+        // Apply chaos domain distortion
+        vec2 workingUV = uv;
+        if (u_chaosEnabled > 0.5) {
+          float chaosScale = u_chaosAmount * 4.0;
+          float n1 = noise(uv * chaosScale + time * 0.3);
+          float n2 = noise(uv * chaosScale * 1.3 - time * 0.2);
+          vec2 warp = vec2(n1 - 0.5, n2 - 0.5) * u_chaosAmount * 0.2;
+          workingUV = uv + warp;
+        }
+        
         // Base radial gradient
         vec2 center = vec2(0.5, 0.5);
-        float dist = length(uv - center);
+        float dist = length(workingUV - center);
         float radial = smoothstep(0.0, 1.4, dist);
         
         // Add noise variation
@@ -218,11 +235,23 @@ export function NodalParticlesGradient({
         vec2 uv = v_uv;
         float t = u_time;
         
+        // Apply chaos temporal desync
+        float chaosTime = t;
+        if (u_chaosEnabled > 0.5) {
+          chaosTime = t + u_chaosAmount * 2.0; // Offset by up to 2 seconds
+        }
+        
+        // Apply chaos audio overdrive
+        float chaosAudioBoost = 1.0;
+        if (u_chaosEnabled > 0.5) {
+          chaosAudioBoost = 1.0 + pow(u_audioEnergy, 1.0 + u_chaosAmount * 2.0) * u_chaosAmount * 3.0;
+        }
+        
         // Sample gradient with nodal field influence
-        vec3 gradientColor = sampleGradient(uv, t);
+        vec3 gradientColor = sampleGradient(uv, chaosTime) * chaosAudioBoost;
         
         // Render particles on top
-        float particles = renderParticles(uv, t);
+        float particles = renderParticles(uv, chaosTime);
         
         // Composite particles with gradient
         vec3 particleColor = mix(u_colorChroma, vec3(1.0), 0.5);
@@ -231,6 +260,15 @@ export function NodalParticlesGradient({
         // Add subtle glow around particles
         float particleGlow = particles * 0.3;
         finalColor += gradientColor * particleGlow;
+        
+        // Apply chaos chromatic aberration
+        if (u_chaosEnabled > 0.5) {
+          float aberration = u_chaosAmount * 0.01;
+          vec3 rColor = sampleGradient(uv + vec2(aberration, 0.0), chaosTime);
+          vec3 gColor = finalColor;
+          vec3 bColor = sampleGradient(uv - vec2(aberration, 0.0), chaosTime);
+          finalColor = vec3(rColor.r, gColor.g, bColor.b);
+        }
         
         gl_FragColor = vec4(finalColor, 1.0);
       }
@@ -280,6 +318,8 @@ export function NodalParticlesGradient({
       u_colorA: gl.getUniformLocation(program, "u_colorA"),
       u_colorB: gl.getUniformLocation(program, "u_colorB"),
       u_colorChroma: gl.getUniformLocation(program, "u_colorChroma"),
+      u_chaosEnabled: gl.getUniformLocation(program, "u_chaosEnabled"),
+      u_chaosAmount: gl.getUniformLocation(program, "u_chaosAmount"),
     }
 
     // Handle resize
@@ -338,6 +378,8 @@ export function NodalParticlesGradient({
       gl.uniform3f(uniformsRef.current.u_colorA, ...colorA)
       gl.uniform3f(uniformsRef.current.u_colorB, ...colorB)
       gl.uniform3f(uniformsRef.current.u_colorChroma, ...colorChroma)
+      gl.uniform1f(uniformsRef.current.u_chaosEnabled, chaosEnabled ? 1.0 : 0.0)
+      gl.uniform1f(uniformsRef.current.u_chaosAmount, chaosAmount)
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
 
@@ -350,7 +392,7 @@ export function NodalParticlesGradient({
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [colors, density, size, drift, influence, audioEnergy, audioTransient, audioBass, time])
+  }, [colors, density, size, drift, influence, audioEnergy, audioTransient, audioBass, time, chaosEnabled, chaosAmount])
 
   return <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 }

@@ -260,6 +260,8 @@ function HomeContent() {
               audioTransient={audioData.transient}
               audioBass={audioData.bass}
               time={time}
+              chaosEnabled={settings.chaos?.enabled ?? false}
+              chaosAmount={settings.chaos?.amount ?? 0.5}
             />
           ) : settings.membrane?.enabled ? (
             <WarpedGradientBackground
@@ -273,6 +275,8 @@ function HomeContent() {
               audioEnergy={audioData.fftEnergy}
               audioTransient={audioData.transient}
               time={time}
+              chaosEnabled={settings.chaos?.enabled ?? false}
+              chaosAmount={settings.chaos?.amount ?? 0.5}
             />
           ) : (
             <ShaderBackground
@@ -284,9 +288,10 @@ function HomeContent() {
               audioFFTEnergy={audioData.fftEnergy}
               audioSpectralCentroid={audioData.spectralCentroid}
               currentSection={currentSection}
+              chaosEnabled={settings.chaos?.enabled ?? false}
+              chaosAmount={settings.chaos?.amount ?? 0.5}
             />
           )}
-          <div className="absolute inset-0 bg-black/20" />
         </div>
       ) : webGLSupported === false ? (
         <div
