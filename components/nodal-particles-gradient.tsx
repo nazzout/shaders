@@ -27,6 +27,11 @@ interface NodalParticlesGradientProps {
   turbulenceScale: number    // 0.25-5
   turbulenceSpeed: number    // 0-3
   turbulenceOctaves: number  // 1-4
+  // Cursor
+  cursorX?: number           // 0-1, normalized cursor X
+  cursorY?: number           // 0-1, normalized cursor Y
+  cursorStrength?: number    // 0-1, cursor influence intensity
+  isInteractingWithUI?: boolean // disable cursor when over UI
 }
 
 export function NodalParticlesGradient({
@@ -46,6 +51,10 @@ export function NodalParticlesGradient({
   turbulenceScale,
   turbulenceSpeed,
   turbulenceOctaves,
+  cursorX = 0.5,
+  cursorY = 0.5,
+  cursorStrength = 0,
+  isInteractingWithUI = false,
 }: NodalParticlesGradientProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const glRef = useRef<WebGLRenderingContext | null>(null)
@@ -94,14 +103,39 @@ export function NodalParticlesGradient({
       uniform float u_turbulenceScale;
       uniform float u_turbulenceSpeed;
       uniform float u_turbulenceOctaves;
+      uniform vec2 u_cursorPos;
+      uniform float u_cursorStrength;
+      uniform float u_isInteractingWithUI;
       
       const float PI = 3.14159265359;
       
       // === CHLADNI / CYMATICS NODAL FIELD ===
       // Returns nodal field value (closer to 0 = on nodal line)
       float chladniField(vec2 uv, float time) {
+        vec2 workingUV = uv;
+        
+        // === CURSOR DOMAIN WARP ===
+        if (u_isInteractingWithUI < 0.5 && u_cursorStrength > 0.0) {
+          // Distance from cursor
+          float cursorDist = length(uv - u_cursorPos);
+          
+          // Exponential falloff
+          float falloff = exp(-cursorDist * cursorDist * 12.0);
+          
+          // Pull vector toward cursor (creates distortion/swirl)
+          vec2 pullVec = normalize(u_cursorPos - uv);
+          
+          // Add slight rotation for swirl effect
+          float angle = falloff * u_cursorStrength * 0.8;
+          mat2 rotation = mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
+          pullVec = rotation * pullVec;
+          
+          // Apply domain warp to UV
+          workingUV = uv + pullVec * falloff * u_cursorStrength * 0.15;
+        }
+        
         // Shift to centered coordinates
-        vec2 p = (uv - 0.5) * 2.0;
+        vec2 p = (workingUV - 0.5) * 2.0;
         
         // Chladni mode numbers (n, m) - vary with time for animation
         float n = 3.0 + sin(time * 0.2) * 1.0;
@@ -175,6 +209,17 @@ export function NodalParticlesGradient({
         vec2 flow = normalize(vec2(-gradient.y, gradient.x)) * u_drift; // Perpendicular to gradient
         float flowPhase = hash(grid) * PI * 2.0;
         vec2 offset = flow * sin(time * 0.5 + flowPhase) * 0.3;
+        
+        // === CURSOR FORCE ON PARTICLES ===
+        if (u_isInteractingWithUI < 0.5 && u_cursorStrength > 0.0) {
+          float cursorDist = length(gridCenter - u_cursorPos);
+          float cursorFalloff = exp(-cursorDist * cursorDist * 10.0);
+          
+          // Particles drift toward/orbit around cursor
+          vec2 toCursor = normalize(u_cursorPos - gridCenter);
+          vec2 cursorForce = toCursor * cursorFalloff * u_cursorStrength * 0.4;
+          offset += cursorForce;
+        }
         
         // Particle position with drift
         vec2 particlePos = vec2(0.5) + offset;
@@ -369,6 +414,9 @@ export function NodalParticlesGradient({
       u_turbulenceScale: gl.getUniformLocation(program, "u_turbulenceScale"),
       u_turbulenceSpeed: gl.getUniformLocation(program, "u_turbulenceSpeed"),
       u_turbulenceOctaves: gl.getUniformLocation(program, "u_turbulenceOctaves"),
+      u_cursorPos: gl.getUniformLocation(program, "u_cursorPos"),
+      u_cursorStrength: gl.getUniformLocation(program, "u_cursorStrength"),
+      u_isInteractingWithUI: gl.getUniformLocation(program, "u_isInteractingWithUI"),
     }
 
     // Handle resize
@@ -434,6 +482,9 @@ export function NodalParticlesGradient({
       gl.uniform1f(uniformsRef.current.u_turbulenceScale, turbulenceScale)
       gl.uniform1f(uniformsRef.current.u_turbulenceSpeed, turbulenceSpeed)
       gl.uniform1f(uniformsRef.current.u_turbulenceOctaves, turbulenceOctaves)
+      gl.uniform2f(uniformsRef.current.u_cursorPos, cursorX, cursorY)
+      gl.uniform1f(uniformsRef.current.u_cursorStrength, cursorStrength)
+      gl.uniform1f(uniformsRef.current.u_isInteractingWithUI, isInteractingWithUI ? 1.0 : 0.0)
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
 
@@ -446,7 +497,7 @@ export function NodalParticlesGradient({
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [colors, density, size, drift, influence, audioEnergy, audioTransient, audioBass, time, chaosEnabled, chaosAmount, turbulenceEnabled, turbulenceStrength, turbulenceScale, turbulenceSpeed, turbulenceOctaves])
+  }, [colors, density, size, drift, influence, audioEnergy, audioTransient, audioBass, time, chaosEnabled, chaosAmount, turbulenceEnabled, turbulenceStrength, turbulenceScale, turbulenceSpeed, turbulenceOctaves, cursorX, cursorY, cursorStrength, isInteractingWithUI])
 
   return <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 }

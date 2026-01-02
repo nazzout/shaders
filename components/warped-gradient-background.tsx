@@ -20,6 +20,10 @@ interface WarpedGradientBackgroundProps {
   turbulenceScale: number    // 0.25-5
   turbulenceSpeed: number    // 0-3
   turbulenceOctaves: number  // 1-4
+  cursorX?: number           // 0-1, normalized cursor X
+  cursorY?: number           // 0-1, normalized cursor Y
+  cursorStrength?: number    // 0-1, cursor influence intensity
+  isInteractingWithUI?: boolean // disable cursor when over UI
 }
 
 export function WarpedGradientBackground({
@@ -36,6 +40,10 @@ export function WarpedGradientBackground({
   turbulenceScale,
   turbulenceSpeed,
   turbulenceOctaves,
+  cursorX = 0.5,
+  cursorY = 0.5,
+  cursorStrength = 0,
+  isInteractingWithUI = false,
 }: WarpedGradientBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const glRef = useRef<WebGLRenderingContext | null>(null)
@@ -81,6 +89,9 @@ export function WarpedGradientBackground({
       uniform float u_turbulenceScale;
       uniform float u_turbulenceSpeed;
       uniform float u_turbulenceOctaves;
+      uniform vec2 u_cursorPos;
+      uniform float u_cursorStrength;
+      uniform float u_isInteractingWithUI;
       
       // Noise function for organic motion
       float hash(vec2 p) {
@@ -119,7 +130,23 @@ export function WarpedGradientBackground({
         // Organic drift
         float organic = noise(uv * 2.5 + time * 0.4) * 0.12;
         
-        return (waves + waves2 + pulse + organic) * u_depth;
+        // === CURSOR INFLUENCE ===
+        float cursorDisplacement = 0.0;
+        if (u_isInteractingWithUI < 0.5 && u_cursorStrength > 0.0) {
+          // Distance from cursor
+          float cursorDist = length(uv - u_cursorPos);
+          
+          // Exponential falloff (rings get pulled/pushed near cursor)
+          float falloff = exp(-cursorDist * cursorDist * 15.0);
+          
+          // Add oscillation for dynamic effect
+          float oscillation = sin(time * 2.0 + cursorDist * 8.0) * 0.5 + 0.5;
+          
+          // Cursor pushes/pulls the membrane height
+          cursorDisplacement = falloff * u_cursorStrength * 0.4 * (0.5 + oscillation * 0.5);
+        }
+        
+        return (waves + waves2 + pulse + organic + cursorDisplacement) * u_depth;
       }
       
       // === NORMAL CALCULATION ===
@@ -329,6 +356,9 @@ export function WarpedGradientBackground({
       u_turbulenceScale: gl.getUniformLocation(program, "u_turbulenceScale"),
       u_turbulenceSpeed: gl.getUniformLocation(program, "u_turbulenceSpeed"),
       u_turbulenceOctaves: gl.getUniformLocation(program, "u_turbulenceOctaves"),
+      u_cursorPos: gl.getUniformLocation(program, "u_cursorPos"),
+      u_cursorStrength: gl.getUniformLocation(program, "u_cursorStrength"),
+      u_isInteractingWithUI: gl.getUniformLocation(program, "u_isInteractingWithUI"),
     }
 
     // Handle resize
@@ -392,6 +422,9 @@ export function WarpedGradientBackground({
       gl.uniform1f(uniformsRef.current.u_turbulenceScale, turbulenceScale)
       gl.uniform1f(uniformsRef.current.u_turbulenceSpeed, turbulenceSpeed)
       gl.uniform1f(uniformsRef.current.u_turbulenceOctaves, turbulenceOctaves)
+      gl.uniform2f(uniformsRef.current.u_cursorPos, cursorX, cursorY)
+      gl.uniform1f(uniformsRef.current.u_cursorStrength, cursorStrength)
+      gl.uniform1f(uniformsRef.current.u_isInteractingWithUI, isInteractingWithUI ? 1.0 : 0.0)
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
 
@@ -404,7 +437,7 @@ export function WarpedGradientBackground({
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [colors, depth, ripple, audioEnergy, audioTransient, time, chaosEnabled, chaosAmount, turbulenceEnabled, turbulenceStrength, turbulenceScale, turbulenceSpeed, turbulenceOctaves])
+  }, [colors, depth, ripple, audioEnergy, audioTransient, time, chaosEnabled, chaosAmount, turbulenceEnabled, turbulenceStrength, turbulenceScale, turbulenceSpeed, turbulenceOctaves, cursorX, cursorY, cursorStrength, isInteractingWithUI])
 
   return <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 }

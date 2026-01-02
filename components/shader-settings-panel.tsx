@@ -26,7 +26,7 @@ const COLOR_FIELDS = [
 ]
 
 export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProps) {
-  const { settings, updateSection, setActiveEffect, updateMembrane, updateNodalParticles, updateChaos, updateTurbulence, resetToDefaults } = useShaderSettings()
+  const { settings, updateSection, setActiveEffect, updateMembrane, updateNodalParticles, updateChaos, updateTurbulence, updateCursor, resetToDefaults } = useShaderSettings()
   
   // Accordion state - all collapsed by default
   const [openPanels, setOpenPanels] = useState<{
@@ -146,6 +146,36 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
         {/* Content */}
         <div className="h-[calc(100vh-73px)] overflow-y-auto px-6 py-6">
           <div className="space-y-8">
+            {/* Controls Section */}
+            <div className="space-y-4">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground/70">
+                Controls
+              </h2>
+              
+              {/* Cursor Strength Slider */}
+              <div className="space-y-2 pl-0">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-foreground/80">Cursor Strength</label>
+                  <span className="font-mono text-xs text-foreground/60">
+                    {(settings.cursor?.strength ?? 0.35).toFixed(2)}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={settings.cursor?.strength ?? 0.35}
+                  onChange={(e) => updateCursor({ strength: parseFloat(e.target.value) })}
+                  className="w-full cursor-pointer"
+                  aria-label="Cursor Strength"
+                />
+                <p className="text-xs text-foreground/50">
+                  Controls how much the cursor distorts/pulls the effects (0 = disabled)
+                </p>
+              </div>
+            </div>
+
             {/* Chaos Mode Controls */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">

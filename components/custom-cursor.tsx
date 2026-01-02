@@ -1,6 +1,152 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, createContext, useContext, type ReactNode } from "react"
+
+interface CursorContextType {
+  position: { x: number; y: number }
+  isOverUI: boolean
+}
+
+const CursorContext = createContext<CursorContextType>({
+  position: { x: 0.5, y: 0.5 },
+  isOverUI: false,
+})
+
+export function useCursorPosition() {
+  return useContext(CursorContext)
+}
+
+export function CursorProvider({ children }: { children: ReactNode }) {
+  const [position, setPosition] = useState({ x: 0.5, y: 0.5 })
+  const [isOverUI, setIsOverUI] = useState(false)
+  const positionRef = useRef({ x: 0.5, y: 0.5 })
+  const rafIdRef = useRef<number>()
+  const activePointerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    let pendingUpdate = false
+
+    // Update position via RAF for smooth updates during touch drag
+    const updatePosition = () => {
+      if (pendingUpdate) {
+        setPosition({ ...positionRef.current })
+        pendingUpdate = false
+      }
+      rafIdRef.current = requestAnimationFrame(updatePosition)
+    }
+    rafIdRef.current = requestAnimationFrame(updatePosition)
+
+    const checkUIElement = (target: HTMLElement): boolean => {
+      return (
+        target.closest('button') !== null ||
+        target.closest('a') !== null ||
+        target.closest('input') !== null ||
+        target.closest('select') !== null ||
+        target.closest('textarea') !== null ||
+        target.closest('[role="button"]') !== null ||
+        target.closest('[data-ui-panel]') !== null ||
+        target.tagName === 'BUTTON' ||
+        target.tagName === 'A' ||
+        target.tagName === 'INPUT' ||
+        target.tagName === 'SELECT' ||
+        target.tagName === 'TEXTAREA'
+      )
+    }
+
+    const updateCursorPosition = (clientX: number, clientY: number, target: HTMLElement) => {
+      // Normalize to 0-1 range
+      positionRef.current = {
+        x: clientX / window.innerWidth,
+        y: clientY / window.innerHeight,
+      }
+      pendingUpdate = true
+      
+      // Check if hovering over UI elements
+      setIsOverUI(checkUIElement(target))
+    }
+
+    // Mouse events for desktop
+    const handleMouseMove = (e: MouseEvent) => {
+      updateCursorPosition(e.clientX, e.clientY, e.target as HTMLElement)
+    }
+
+    // Touch events for mobile with proper drag tracking
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        const touch = e.touches[0]
+        updateCursorPosition(touch.clientX, touch.clientY, e.target as HTMLElement)
+      }
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        const touch = e.touches[0]
+        updateCursorPosition(touch.clientX, touch.clientY, document.elementFromPoint(touch.clientX, touch.clientY) as HTMLElement)
+      }
+    }
+
+    const handleTouchEnd = () => {
+      // Keep last position on touch end
+    }
+
+    // Pointer events as fallback
+    const handlePointerDown = (e: PointerEvent) => {
+      activePointerRef.current = e.pointerId
+      updateCursorPosition(e.clientX, e.clientY, e.target as HTMLElement)
+      
+      // Capture pointer for smooth dragging
+      if (e.target instanceof Element) {
+        try {
+          e.target.setPointerCapture(e.pointerId)
+        } catch (err) {
+          // Ignore capture errors
+        }
+      }
+    }
+
+    const handlePointerMove = (e: PointerEvent) => {
+      if (activePointerRef.current === null || activePointerRef.current === e.pointerId) {
+        updateCursorPosition(e.clientX, e.clientY, e.target as HTMLElement)
+      }
+    }
+
+    const handlePointerUp = (e: PointerEvent) => {
+      if (activePointerRef.current === e.pointerId) {
+        activePointerRef.current = null
+      }
+    }
+
+    // Add all event listeners
+    window.addEventListener("mousemove", handleMouseMove, { passive: true })
+    window.addEventListener("touchstart", handleTouchStart, { passive: true })
+    window.addEventListener("touchmove", handleTouchMove, { passive: true })
+    window.addEventListener("touchend", handleTouchEnd, { passive: true })
+    window.addEventListener("pointerdown", handlePointerDown, { passive: true })
+    window.addEventListener("pointermove", handlePointerMove, { passive: true })
+    window.addEventListener("pointerup", handlePointerUp, { passive: true })
+    window.addEventListener("pointercancel", handlePointerUp, { passive: true })
+    
+    return () => {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current)
+      }
+      window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("touchstart", handleTouchStart)
+      window.removeEventListener("touchmove", handleTouchMove)
+      window.removeEventListener("touchend", handleTouchEnd)
+      window.removeEventListener("pointerdown", handlePointerDown)
+      window.removeEventListener("pointermove", handlePointerMove)
+      window.removeEventListener("pointerup", handlePointerUp)
+      window.removeEventListener("pointercancel", handlePointerUp)
+    }
+  }, [])
+
+  return (
+    <CursorContext.Provider value={{ position, isOverUI }}>
+      {children}
+    </CursorContext.Provider>
+  )
+}
 
 export function CustomCursor() {
   const outerRef = useRef<HTMLDivElement>(null)
@@ -8,7 +154,7 @@ export function CustomCursor() {
   const positionRef = useRef({ x: 0, y: 0 })
   const targetPositionRef = useRef({ x: 0, y: 0 })
   const isPointerRef = useRef(false)
-  const [isOverUI, setIsOverUI] = useState(false)
+  const { isOverUI } = useCursorPosition()
 
   useEffect(() => {
     let animationFrameId: number
@@ -36,23 +182,6 @@ export function CustomCursor() {
       targetPositionRef.current = { x: e.clientX, y: e.clientY }
 
       const target = e.target as HTMLElement
-      
-      // Check if hovering over UI elements
-      const isOverUIElement = 
-        target.closest('button') !== null ||
-        target.closest('a') !== null ||
-        target.closest('input') !== null ||
-        target.closest('select') !== null ||
-        target.closest('textarea') !== null ||
-        target.closest('[role="button"]') !== null ||
-        target.closest('[data-ui-panel]') !== null ||
-        target.tagName === 'BUTTON' ||
-        target.tagName === 'A' ||
-        target.tagName === 'INPUT' ||
-        target.tagName === 'SELECT' ||
-        target.tagName === 'TEXTAREA'
-      
-      setIsOverUI(isOverUIElement)
       
       isPointerRef.current =
         window.getComputedStyle(target).cursor === "pointer" || target.tagName === "BUTTON" || target.tagName === "A"
