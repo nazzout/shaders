@@ -3,6 +3,8 @@
 import { useState } from "react"
 import { X, RotateCcw, ChevronDown } from "lucide-react"
 import { useShaderSettings, type SectionColors } from "@/components/shader-settings-provider"
+import { HandParticlesControl } from "@/components/hand-particles-control"
+import { useHandTrackingContext } from "@/components/hand-tracking-provider"
 
 interface ShaderSettingsPanelProps {
   isOpen: boolean
@@ -26,7 +28,8 @@ const COLOR_FIELDS = [
 ]
 
 export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProps) {
-  const { settings, updateSection, setActiveEffect, updateMembrane, updateNodalParticles, updateChaos, updateTurbulence, updateCursor, resetToDefaults } = useShaderSettings()
+  const { settings, updateSection, setActiveEffect, updateMembrane, updateNodalParticles, updateChaos, updateTurbulence, updateCursor, updateHandParticles, resetToDefaults } = useShaderSettings()
+  const { isActive: isCameraActive, handsDetected, error: cameraError, startCamera, stopCamera } = useHandTrackingContext()
   
   // Accordion state - all collapsed by default
   const [openPanels, setOpenPanels] = useState<{
@@ -34,11 +37,13 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
     turbulence: boolean
     membrane: boolean
     nodalParticles: boolean
+    handParticles: boolean
   }>({
     chaos: false,
     turbulence: false,
     membrane: false,
     nodalParticles: false,
+    handParticles: false,
   })
 
   // Handle chaos toggle with accordion behavior
@@ -109,8 +114,20 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
     }
   }
 
+  // Handle hand particles toggle with accordion behavior
+  const handleHandParticlesToggle = () => {
+    const newEnabled = !settings.handParticles?.enabled
+    updateHandParticles({ enabled: newEnabled })
+    
+    // Open hand particles panel when enabled, close when disabled
+    setOpenPanels(prev => ({
+      ...prev,
+      handParticles: newEnabled,
+    }))
+  }
+
   // Toggle panel open/closed manually
-  const togglePanel = (panel: 'chaos' | 'turbulence' | 'membrane' | 'nodalParticles') => {
+  const togglePanel = (panel: 'chaos' | 'turbulence' | 'membrane' | 'nodalParticles' | 'handParticles') => {
     setOpenPanels(prev => ({
       ...prev,
       [panel]: !prev[panel],
@@ -591,6 +608,132 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
                     />
                     <p className="text-xs text-foreground/50">
                       How strongly nodal field affects gradient
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Hand-Controlled Particles Controls */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => togglePanel('handParticles')}
+                  className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-foreground/70 hover:text-foreground transition-colors"
+                >
+                  <ChevronDown className={`h-4 w-4 transition-transform ${
+                    openPanels.handParticles ? "rotate-0" : "-rotate-90"
+                  }`} />
+                  Hand-Controlled Particles
+                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleHandParticlesToggle}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      settings.handParticles?.enabled ? "bg-green-600" : "bg-foreground/20"
+                    }`}
+                    title="Toggle Hand-Controlled Particles"
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        settings.handParticles?.enabled ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                  <button
+                    onClick={() => {
+                      updateHandParticles({ enabled: false, cameraActive: false, particleCount: 0.6, particleSize: 0.5, responseSpeed: 0.7 })
+                    }}
+                    className="text-xs text-foreground/60 hover:text-foreground transition-colors"
+                    title="Reset to defaults"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+              
+              {/* Collapsible Panel Content */}
+              {openPanels.handParticles && (
+                <div className="space-y-4 pl-6 border-l-2 border-foreground/10">
+                  <p className="text-xs text-foreground/50">
+                    Uses your camera to track hand movements and control particle behavior.
+                  </p>
+
+                  {/* Camera Controls */}
+                  <HandParticlesControl
+                    isCameraActive={isCameraActive}
+                    handsDetected={handsDetected}
+                    cameraError={cameraError}
+                    startCamera={startCamera}
+                    stopCamera={stopCamera}
+                  />
+
+                  {/* Particle Count Slider */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-foreground/80">Particle Count</label>
+                      <span className="font-mono text-xs text-foreground/60">
+                        {(settings.handParticles?.particleCount ?? 0.6).toFixed(2)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={settings.handParticles?.particleCount ?? 0.6}
+                      onChange={(e) => updateHandParticles({ particleCount: parseFloat(e.target.value) })}
+                      className="w-full cursor-pointer"
+                      aria-label="Particle Count"
+                    />
+                    <p className="text-xs text-foreground/50">
+                      Controls the density of particles (more particles may impact performance)
+                    </p>
+                  </div>
+
+                  {/* Particle Size Slider */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-foreground/80">Particle Size</label>
+                      <span className="font-mono text-xs text-foreground/60">
+                        {(settings.handParticles?.particleSize ?? 0.5).toFixed(2)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={settings.handParticles?.particleSize ?? 0.5}
+                      onChange={(e) => updateHandParticles({ particleSize: parseFloat(e.target.value) })}
+                      className="w-full cursor-pointer"
+                      aria-label="Particle Size"
+                    />
+                    <p className="text-xs text-foreground/50">
+                      Controls the size of individual particles
+                    </p>
+                  </div>
+
+                  {/* Response Speed Slider */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-foreground/80">Response Speed</label>
+                      <span className="font-mono text-xs text-foreground/60">
+                        {(settings.handParticles?.responseSpeed ?? 0.7).toFixed(2)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={settings.handParticles?.responseSpeed ?? 0.7}
+                      onChange={(e) => updateHandParticles({ responseSpeed: parseFloat(e.target.value) })}
+                      className="w-full cursor-pointer"
+                      aria-label="Response Speed"
+                    />
+                    <p className="text-xs text-foreground/50">
+                      Controls how quickly particles respond to hand movements
                     </p>
                   </div>
                 </div>

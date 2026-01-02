@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic"
 import { CustomCursor, CursorProvider, useCursorPosition } from "@/components/custom-cursor"
+import { HandTrackingProvider, useHandTrackingContext } from "@/components/hand-tracking-provider"
 import { GrainOverlay } from "@/components/grain-overlay"
 import { WorkSection } from "@/components/sections/work-section"
 import { ServicesSection } from "@/components/sections/services-section"
@@ -16,6 +17,11 @@ import { useRef, useEffect, useState } from "react"
 import { useAudio } from "@/hooks/use-audio"
 
 const ShaderBackground = dynamic(() => import("@/components/shader-background"), {
+  ssr: false,
+  loading: () => null,
+})
+
+const HandParticles = dynamic(() => import("@/components/hand-particles").then(mod => ({ default: mod.HandParticles })), {
   ssr: false,
   loading: () => null,
 })
@@ -36,6 +42,7 @@ function HomeContent() {
   const scrollThrottleRef = useRef<number>()
   const { audioData, isEnabled, enableAudio, disableAudio } = useAudio()
   const [audioError, setAudioError] = useState<string | null>(null)
+  const { isActive: isCameraActive, handsDetected, handData, stopCamera } = useHandTrackingContext()
   
   const handleAudioToggle = async () => {
     if (isEnabled) {
@@ -71,6 +78,22 @@ function HomeContent() {
     }
     updateTime()
   }, [])
+
+  // Handle hand particles toggle - stop camera when disabled
+  useEffect(() => {
+    if (!settings.handParticles?.enabled && isCameraActive) {
+      stopCamera()
+    }
+  }, [settings.handParticles?.enabled, isCameraActive, stopCamera])
+
+  // Cleanup camera on unmount
+  useEffect(() => {
+    return () => {
+      if (isCameraActive) {
+        stopCamera()
+      }
+    }
+  }, [isCameraActive, stopCamera])
 
   // Fade out scroll hint after 4 seconds
   useEffect(() => {
@@ -266,6 +289,23 @@ function HomeContent() {
         <GrainOverlay />
         <FloatingSettingsButton />
 
+        {/* Hand-Controlled Particles Layer */}
+        {settings.handParticles?.enabled && isCameraActive && handsDetected > 0 && (
+          <HandParticles
+            colors={{
+              swirlA: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.swirlA ?? '#1275d8',
+              swirlB: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.swirlB ?? '#e19136',
+              chromaBase: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.chromaBase ?? '#0066ff',
+            }}
+            handData={handData}
+            particleCount={settings.handParticles?.particleCount ?? 0.6}
+            particleSize={settings.handParticles?.particleSize ?? 0.5}
+            responseSpeed={settings.handParticles?.responseSpeed ?? 0.7}
+            time={time}
+            audioData={audioData}
+          />
+        )}
+
       {webGLSupported === true ? (
         <div
           ref={shaderContainerRef}
@@ -429,7 +469,9 @@ export default function Home() {
   return (
     <CursorProvider>
       <ShaderSettingsProvider>
-        <HomeContent />
+        <HandTrackingProvider>
+          <HomeContent />
+        </HandTrackingProvider>
       </ShaderSettingsProvider>
     </CursorProvider>
   )

@@ -45,6 +45,13 @@ export interface ShaderSettings {
   cursor: {
     strength: number // 0-1, cursor influence intensity
   }
+  handParticles: {
+    enabled: boolean      // Toggle hand particles on/off
+    cameraActive: boolean // Camera is currently running
+    particleCount: number // 0-1, density of particles
+    particleSize: number  // 0-1, size of particles
+    responseSpeed: number // 0-1, how quickly particles respond to hand movement
+  }
 }
 
 // Default color schemes
@@ -111,6 +118,13 @@ const DEFAULT_SETTINGS: ShaderSettings = {
   cursor: {
     strength: 0.35,
   },
+  handParticles: {
+    enabled: false,
+    cameraActive: false,
+    particleCount: 0.6,
+    particleSize: 0.5,
+    responseSpeed: 0.7,
+  },
 }
 
 const STORAGE_KEY = "shader-settings"
@@ -125,6 +139,7 @@ interface ShaderSettingsContextType {
   updateChaos: (params: Partial<ShaderSettings["chaos"]>) => void
   updateTurbulence: (params: Partial<ShaderSettings["turbulence"]>) => void
   updateCursor: (params: Partial<ShaderSettings["cursor"]>) => void
+  updateHandParticles: (params: Partial<ShaderSettings["handParticles"]>) => void
   resetToDefaults: () => void
 }
 
@@ -170,6 +185,7 @@ export function ShaderSettingsProvider({ children }: { children: ReactNode }) {
           chaos: { ...DEFAULT_SETTINGS.chaos, ...(parsed.chaos || {}) },
           turbulence: { ...DEFAULT_SETTINGS.turbulence, ...(parsed.turbulence || {}) },
           cursor: { ...DEFAULT_SETTINGS.cursor, ...(parsed.cursor || {}) },
+          handParticles: { ...DEFAULT_SETTINGS.handParticles, ...(parsed.handParticles || {}) },
         })
       }
     } catch (error) {
@@ -273,13 +289,25 @@ export function ShaderSettingsProvider({ children }: { children: ReactNode }) {
     saveSettings(newSettings)
   }
 
+  // Update hand particles parameters
+  const updateHandParticles = (params: Partial<ShaderSettings["handParticles"]>) => {
+    const newSettings = {
+      ...settings,
+      handParticles: {
+        ...settings.handParticles,
+        ...params,
+      },
+    }
+    saveSettings(newSettings)
+  }
+
   // Reset to default settings
   const resetToDefaults = () => {
     saveSettings(DEFAULT_SETTINGS)
   }
 
   return (
-    <ShaderSettingsContext.Provider value={{ settings, isLoaded, updateSection, setActiveEffect, updateMembrane, updateNodalParticles, updateChaos, updateTurbulence, updateCursor, resetToDefaults }}>
+    <ShaderSettingsContext.Provider value={{ settings, isLoaded, updateSection, setActiveEffect, updateMembrane, updateNodalParticles, updateChaos, updateTurbulence, updateCursor, updateHandParticles, resetToDefaults }}>
       {children}
     </ShaderSettingsContext.Provider>
   )
