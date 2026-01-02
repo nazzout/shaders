@@ -245,7 +245,7 @@ function HomeContent() {
           className={`fixed inset-0 z-0 transition-opacity duration-700 ${isLoaded ? "opacity-100" : "opacity-0"}`}
           style={{ contain: "strict" }}
         >
-          {settings.nodalParticles?.enabled ? (
+          {settings.activeEffect === 'nodalParticles' ? (
             <NodalParticlesGradient
               colors={{
                 swirlA: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.swirlA ?? '#1275d8',
@@ -263,7 +263,7 @@ function HomeContent() {
               chaosEnabled={settings.chaos?.enabled ?? false}
               chaosAmount={settings.chaos?.amount ?? 0.5}
             />
-          ) : settings.membrane?.enabled ? (
+          ) : settings.activeEffect === 'membrane' ? (
             <WarpedGradientBackground
               colors={{
                 swirlA: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.swirlA ?? '#1275d8',

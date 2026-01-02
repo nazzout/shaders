@@ -1,6 +1,7 @@
 "use client"
 
-import { X, RotateCcw } from "lucide-react"
+import { useState } from "react"
+import { X, RotateCcw, ChevronDown } from "lucide-react"
 import { useShaderSettings, type SectionColors } from "@/components/shader-settings-provider"
 
 interface ShaderSettingsPanelProps {
@@ -25,7 +26,82 @@ const COLOR_FIELDS = [
 ]
 
 export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProps) {
-  const { settings, updateSection, updateMembrane, updateNodalParticles, updateChaos, resetToDefaults } = useShaderSettings()
+  const { settings, updateSection, setActiveEffect, updateMembrane, updateNodalParticles, updateChaos, resetToDefaults } = useShaderSettings()
+  
+  // Accordion state - all collapsed by default
+  const [openPanels, setOpenPanels] = useState<{
+    chaos: boolean
+    membrane: boolean
+    nodalParticles: boolean
+  }>({
+    chaos: false,
+    membrane: false,
+    nodalParticles: false,
+  })
+
+  // Handle chaos toggle with accordion behavior
+  const handleChaosToggle = () => {
+    const newEnabled = !settings.chaos?.enabled
+    updateChaos({ enabled: newEnabled })
+    
+    // Open chaos panel when enabled, close when disabled
+    setOpenPanels(prev => ({
+      ...prev,
+      chaos: newEnabled,
+    }))
+  }
+
+  // Handle membrane toggle with mutual exclusivity and accordion behavior
+  const handleMembraneToggle = () => {
+    const isCurrentlyActive = settings.activeEffect === 'membrane'
+    
+    if (isCurrentlyActive) {
+      // Disable membrane
+      setActiveEffect('none')
+      setOpenPanels(prev => ({
+        ...prev,
+        membrane: false,
+      }))
+    } else {
+      // Enable membrane (automatically disables nodal particles due to mutual exclusivity)
+      setActiveEffect('membrane')
+      setOpenPanels(prev => ({
+        ...prev,
+        membrane: true,
+        nodalParticles: false,
+      }))
+    }
+  }
+
+  // Handle nodal particles toggle with mutual exclusivity and accordion behavior
+  const handleNodalParticlesToggle = () => {
+    const isCurrentlyActive = settings.activeEffect === 'nodalParticles'
+    
+    if (isCurrentlyActive) {
+      // Disable nodal particles
+      setActiveEffect('none')
+      setOpenPanels(prev => ({
+        ...prev,
+        nodalParticles: false,
+      }))
+    } else {
+      // Enable nodal particles (automatically disables membrane due to mutual exclusivity)
+      setActiveEffect('nodalParticles')
+      setOpenPanels(prev => ({
+        ...prev,
+        nodalParticles: true,
+        membrane: false,
+      }))
+    }
+  }
+
+  // Toggle panel open/closed manually
+  const togglePanel = (panel: 'chaos' | 'membrane' | 'nodalParticles') => {
+    setOpenPanels(prev => ({
+      ...prev,
+      [panel]: !prev[panel],
+    }))
+  }
 
   if (!isOpen) return null
 
@@ -59,26 +135,22 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
             {/* Chaos Mode Controls */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground/70">
-                  Chaos Mode
-                </h3>
                 <button
-                  onClick={() => updateChaos({ enabled: false, amount: 0.5 })}
-                  className="text-xs text-foreground/60 hover:text-foreground transition-colors"
-                  title="Reset to defaults"
+                  onClick={() => togglePanel('chaos')}
+                  className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-foreground/70 hover:text-foreground transition-colors"
                 >
-                  Reset
+                  <ChevronDown className={`h-4 w-4 transition-transform ${
+                    openPanels.chaos ? "rotate-0" : "-rotate-90"
+                  }`} />
+                  Chaos Mode
                 </button>
-              </div>
-              <div className="space-y-4">
-                {/* Mode Toggle */}
-                <div className="flex items-center justify-between">
-                  <label className="text-sm text-foreground/80">Chaos Mode</label>
+                <div className="flex items-center gap-3">
                   <button
-                    onClick={() => updateChaos({ enabled: !settings.chaos?.enabled })}
+                    onClick={handleChaosToggle}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                       settings.chaos?.enabled ? "bg-red-600" : "bg-foreground/20"
                     }`}
+                    title="Toggle Chaos Mode"
                   >
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -86,229 +158,264 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
                       }`}
                     />
                   </button>
-                </div>
-
-                {/* Chaos Amount Slider */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm text-foreground/80">Chaos</label>
-                    <span className="font-mono text-xs text-foreground/60">
-                      {(settings.chaos?.amount ?? 0.5).toFixed(2)}
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={settings.chaos?.amount ?? 0.5}
-                    onChange={(e) => updateChaos({ amount: parseFloat(e.target.value) })}
-                    className="w-full cursor-pointer"
-                    aria-label="Chaos"
-                  />
-                  <p className="text-xs text-foreground/50">
-                    Domain distortion, chromatic aberration, and audio overdrive
-                  </p>
+                  <button
+                    onClick={() => updateChaos({ enabled: false, amount: 0.5 })}
+                    className="text-xs text-foreground/60 hover:text-foreground transition-colors"
+                    title="Reset to defaults"
+                  >
+                    Reset
+                  </button>
                 </div>
               </div>
+              
+              {/* Collapsible Panel Content */}
+              {openPanels.chaos && (
+                <div className="space-y-4 pl-6 border-l-2 border-foreground/10">
+                  {/* Chaos Amount Slider */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-foreground/80">Chaos</label>
+                      <span className="font-mono text-xs text-foreground/60">
+                        {(settings.chaos?.amount ?? 0.5).toFixed(2)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={settings.chaos?.amount ?? 0.5}
+                      onChange={(e) => updateChaos({ amount: parseFloat(e.target.value) })}
+                      className="w-full cursor-pointer"
+                      aria-label="Chaos"
+                    />
+                    <p className="text-xs text-foreground/50">
+                      Domain distortion, chromatic aberration, and audio overdrive
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
             {/* Membrane 3D Effect Controls */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground/70">
-                  3D Membrane Effect
-                </h3>
                 <button
-                  onClick={() => updateMembrane({ enabled: false, depth: 0.3, ripple: 0.5 })}
-                  className="text-xs text-foreground/60 hover:text-foreground transition-colors"
-                  title="Reset to default gradient"
+                  onClick={() => togglePanel('membrane')}
+                  className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-foreground/70 hover:text-foreground transition-colors"
                 >
-                  Reset to Default
+                  <ChevronDown className={`h-4 w-4 transition-transform ${
+                    openPanels.membrane ? "rotate-0" : "-rotate-90"
+                  }`} />
+                  3D Membrane Effect
                 </button>
-              </div>
-              <div className="space-y-4">
-                {/* Mode Toggle */}
-                <div className="flex items-center justify-between">
-                  <label className="text-sm text-foreground/80">Membrane Mode</label>
+                <div className="flex items-center gap-3">
                   <button
-                    onClick={() => updateMembrane({ enabled: !settings.membrane?.enabled })}
+                    onClick={handleMembraneToggle}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      settings.membrane?.enabled ? "bg-blue-600" : "bg-foreground/20"
+                      settings.activeEffect === 'membrane' ? "bg-blue-600" : "bg-foreground/20"
                     }`}
+                    title="Toggle Membrane Mode"
                   >
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        settings.membrane?.enabled ? "translate-x-6" : "translate-x-1"
+                        settings.activeEffect === 'membrane' ? "translate-x-6" : "translate-x-1"
                       }`}
                     />
                   </button>
-                </div>
-                {/* Depth Slider */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm text-foreground/80">Depth</label>
-                    <span className="font-mono text-xs text-foreground/60">
-                      {(settings.membrane?.depth ?? 0.3).toFixed(2)}
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={settings.membrane?.depth ?? 0.3}
-                    onChange={(e) => updateMembrane({ depth: parseFloat(e.target.value) })}
-                    className="w-full cursor-pointer"
-                  />
-                  <p className="text-xs text-foreground/50">
-                    Controls height/displacement intensity and lighting strength
-                  </p>
-                </div>
-
-                {/* Ripple Slider */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm text-foreground/80">Ripple</label>
-                    <span className="font-mono text-xs text-foreground/60">
-                      {(settings.membrane?.ripple ?? 0.5).toFixed(2)}
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={settings.membrane?.ripple ?? 0.5}
-                    onChange={(e) => updateMembrane({ ripple: parseFloat(e.target.value) })}
-                    className="w-full cursor-pointer"
-                  />
-                  <p className="text-xs text-foreground/50">
-                    Controls circular wave amplitude and frequency
-                  </p>
+                  <button
+                    onClick={() => {
+                      setActiveEffect('none')
+                      updateMembrane({ depth: 0.3, ripple: 0.5 })
+                    }}
+                    className="text-xs text-foreground/60 hover:text-foreground transition-colors"
+                    title="Reset to default gradient"
+                  >
+                    Reset
+                  </button>
                 </div>
               </div>
+              
+              {/* Collapsible Panel Content */}
+              {openPanels.membrane && (
+                <div className="space-y-4 pl-6 border-l-2 border-foreground/10">
+                  {/* Depth Slider */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-foreground/80">Depth</label>
+                      <span className="font-mono text-xs text-foreground/60">
+                        {(settings.membrane?.depth ?? 0.3).toFixed(2)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={settings.membrane?.depth ?? 0.3}
+                      onChange={(e) => updateMembrane({ depth: parseFloat(e.target.value) })}
+                      className="w-full cursor-pointer"
+                    />
+                    <p className="text-xs text-foreground/50">
+                      Controls height/displacement intensity and lighting strength
+                    </p>
+                  </div>
+
+                  {/* Ripple Slider */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-foreground/80">Ripple</label>
+                      <span className="font-mono text-xs text-foreground/60">
+                        {(settings.membrane?.ripple ?? 0.5).toFixed(2)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={settings.membrane?.ripple ?? 0.5}
+                      onChange={(e) => updateMembrane({ ripple: parseFloat(e.target.value) })}
+                      className="w-full cursor-pointer"
+                    />
+                    <p className="text-xs text-foreground/50">
+                      Controls circular wave amplitude and frequency
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Nodal Particles Effect Controls */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground/70">
-                  Nodal Particles
-                </h3>
                 <button
-                  onClick={() => updateNodalParticles({ enabled: false, density: 0.5, size: 0.4, drift: 0.6, influence: 0.5 })}
-                  className="text-xs text-foreground/60 hover:text-foreground transition-colors"
-                  title="Reset to defaults"
+                  onClick={() => togglePanel('nodalParticles')}
+                  className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-foreground/70 hover:text-foreground transition-colors"
                 >
-                  Reset
+                  <ChevronDown className={`h-4 w-4 transition-transform ${
+                    openPanels.nodalParticles ? "rotate-0" : "-rotate-90"
+                  }`} />
+                  Nodal Particles
                 </button>
-              </div>
-              <div className="space-y-4">
-                {/* Mode Toggle */}
-                <div className="flex items-center justify-between">
-                  <label className="text-sm text-foreground/80">Nodal Particles</label>
+                <div className="flex items-center gap-3">
                   <button
-                    onClick={() => updateNodalParticles({ enabled: !settings.nodalParticles?.enabled })}
+                    onClick={handleNodalParticlesToggle}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      settings.nodalParticles?.enabled ? "bg-blue-600" : "bg-foreground/20"
+                      settings.activeEffect === 'nodalParticles' ? "bg-blue-600" : "bg-foreground/20"
                     }`}
+                    title="Toggle Nodal Particles"
                   >
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        settings.nodalParticles?.enabled ? "translate-x-6" : "translate-x-1"
+                        settings.activeEffect === 'nodalParticles' ? "translate-x-6" : "translate-x-1"
                       }`}
                     />
                   </button>
-                </div>
-
-                {/* Density Slider */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm text-foreground/80">Density</label>
-                    <span className="font-mono text-xs text-foreground/60">
-                      {(settings.nodalParticles?.density ?? 0.5).toFixed(2)}
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={settings.nodalParticles?.density ?? 0.5}
-                    onChange={(e) => updateNodalParticles({ density: parseFloat(e.target.value) })}
-                    className="w-full cursor-pointer"
-                  />
-                  <p className="text-xs text-foreground/50">
-                    Particle count and spawn rate
-                  </p>
-                </div>
-
-                {/* Size Slider */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm text-foreground/80">Size</label>
-                    <span className="font-mono text-xs text-foreground/60">
-                      {(settings.nodalParticles?.size ?? 0.4).toFixed(2)}
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={settings.nodalParticles?.size ?? 0.4}
-                    onChange={(e) => updateNodalParticles({ size: parseFloat(e.target.value) })}
-                    className="w-full cursor-pointer"
-                  />
-                  <p className="text-xs text-foreground/50">
-                    Particle radius
-                  </p>
-                </div>
-
-                {/* Drift Slider */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm text-foreground/80">Drift</label>
-                    <span className="font-mono text-xs text-foreground/60">
-                      {(settings.nodalParticles?.drift ?? 0.6).toFixed(2)}
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={settings.nodalParticles?.drift ?? 0.6}
-                    onChange={(e) => updateNodalParticles({ drift: parseFloat(e.target.value) })}
-                    className="w-full cursor-pointer"
-                  />
-                  <p className="text-xs text-foreground/50">
-                    Flow along nodal field lines
-                  </p>
-                </div>
-
-                {/* Influence Slider */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm text-foreground/80">Influence</label>
-                    <span className="font-mono text-xs text-foreground/60">
-                      {(settings.nodalParticles?.influence ?? 0.5).toFixed(2)}
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={settings.nodalParticles?.influence ?? 0.5}
-                    onChange={(e) => updateNodalParticles({ influence: parseFloat(e.target.value) })}
-                    className="w-full cursor-pointer"
-                  />
-                  <p className="text-xs text-foreground/50">
-                    How strongly nodal field affects gradient
-                  </p>
+                  <button
+                    onClick={() => {
+                      setActiveEffect('none')
+                      updateNodalParticles({ density: 0.5, size: 0.4, drift: 0.6, influence: 0.5 })
+                    }}
+                    className="text-xs text-foreground/60 hover:text-foreground transition-colors"
+                    title="Reset to defaults"
+                  >
+                    Reset
+                  </button>
                 </div>
               </div>
+              
+              {/* Collapsible Panel Content */}
+              {openPanels.nodalParticles && (
+                <div className="space-y-4 pl-6 border-l-2 border-foreground/10">
+                  {/* Density Slider */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-foreground/80">Density</label>
+                      <span className="font-mono text-xs text-foreground/60">
+                        {(settings.nodalParticles?.density ?? 0.5).toFixed(2)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={settings.nodalParticles?.density ?? 0.5}
+                      onChange={(e) => updateNodalParticles({ density: parseFloat(e.target.value) })}
+                      className="w-full cursor-pointer"
+                    />
+                    <p className="text-xs text-foreground/50">
+                      Particle count and spawn rate
+                    </p>
+                  </div>
+
+                  {/* Size Slider */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-foreground/80">Size</label>
+                      <span className="font-mono text-xs text-foreground/60">
+                        {(settings.nodalParticles?.size ?? 0.4).toFixed(2)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={settings.nodalParticles?.size ?? 0.4}
+                      onChange={(e) => updateNodalParticles({ size: parseFloat(e.target.value) })}
+                      className="w-full cursor-pointer"
+                    />
+                    <p className="text-xs text-foreground/50">
+                      Particle radius
+                    </p>
+                  </div>
+
+                  {/* Drift Slider */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-foreground/80">Drift</label>
+                      <span className="font-mono text-xs text-foreground/60">
+                        {(settings.nodalParticles?.drift ?? 0.6).toFixed(2)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={settings.nodalParticles?.drift ?? 0.6}
+                      onChange={(e) => updateNodalParticles({ drift: parseFloat(e.target.value) })}
+                      className="w-full cursor-pointer"
+                    />
+                    <p className="text-xs text-foreground/50">
+                      Flow along nodal field lines
+                    </p>
+                  </div>
+
+                  {/* Influence Slider */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-foreground/80">Influence</label>
+                      <span className="font-mono text-xs text-foreground/60">
+                        {(settings.nodalParticles?.influence ?? 0.5).toFixed(2)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={settings.nodalParticles?.influence ?? 0.5}
+                      onChange={(e) => updateNodalParticles({ influence: parseFloat(e.target.value) })}
+                      className="w-full cursor-pointer"
+                    />
+                    <p className="text-xs text-foreground/50">
+                      How strongly nodal field affects gradient
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Colorways Section Header */}
