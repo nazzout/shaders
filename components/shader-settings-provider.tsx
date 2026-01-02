@@ -35,6 +35,13 @@ export interface ShaderSettings {
     enabled: boolean // Toggle chaos mode on/off (can stack with active effect)
     amount: number   // 0-1, chaos intensity
   }
+  turbulence: {
+    enabled: boolean // Toggle turbulence on/off (can stack with any effect)
+    strength: number // 0-1, UV warp amount
+    scale: number    // 0.25-5, noise frequency/detail size
+    speed: number    // 0-3, animation rate
+    octaves: number  // 1-4, quality/detail
+  }
 }
 
 // Default color schemes
@@ -91,6 +98,13 @@ const DEFAULT_SETTINGS: ShaderSettings = {
     enabled: false,
     amount: 0.5,
   },
+  turbulence: {
+    enabled: false,
+    strength: 0.5,
+    scale: 2.0,
+    speed: 1.0,
+    octaves: 2,
+  },
 }
 
 const STORAGE_KEY = "shader-settings"
@@ -103,6 +117,7 @@ interface ShaderSettingsContextType {
   updateMembrane: (params: Partial<ShaderSettings["membrane"]>) => void
   updateNodalParticles: (params: Partial<ShaderSettings["nodalParticles"]>) => void
   updateChaos: (params: Partial<ShaderSettings["chaos"]>) => void
+  updateTurbulence: (params: Partial<ShaderSettings["turbulence"]>) => void
   resetToDefaults: () => void
 }
 
@@ -146,6 +161,7 @@ export function ShaderSettingsProvider({ children }: { children: ReactNode }) {
             influence: parsed.nodalParticles?.influence ?? DEFAULT_SETTINGS.nodalParticles.influence,
           },
           chaos: { ...DEFAULT_SETTINGS.chaos, ...(parsed.chaos || {}) },
+          turbulence: { ...DEFAULT_SETTINGS.turbulence, ...(parsed.turbulence || {}) },
         })
       }
     } catch (error) {
@@ -225,13 +241,25 @@ export function ShaderSettingsProvider({ children }: { children: ReactNode }) {
     saveSettings(newSettings)
   }
 
+  // Update turbulence parameters
+  const updateTurbulence = (params: Partial<ShaderSettings["turbulence"]>) => {
+    const newSettings = {
+      ...settings,
+      turbulence: {
+        ...settings.turbulence,
+        ...params,
+      },
+    }
+    saveSettings(newSettings)
+  }
+
   // Reset to default settings
   const resetToDefaults = () => {
     saveSettings(DEFAULT_SETTINGS)
   }
 
   return (
-    <ShaderSettingsContext.Provider value={{ settings, isLoaded, updateSection, setActiveEffect, updateMembrane, updateNodalParticles, updateChaos, resetToDefaults }}>
+    <ShaderSettingsContext.Provider value={{ settings, isLoaded, updateSection, setActiveEffect, updateMembrane, updateNodalParticles, updateChaos, updateTurbulence, resetToDefaults }}>
       {children}
     </ShaderSettingsContext.Provider>
   )

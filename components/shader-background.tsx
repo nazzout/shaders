@@ -15,6 +15,11 @@ interface ShaderBackgroundProps {
   currentSection?: number
   chaosEnabled?: boolean
   chaosAmount?: number
+  turbulenceEnabled?: boolean
+  turbulenceStrength?: number
+  turbulenceScale?: number
+  turbulenceSpeed?: number
+  turbulenceOctaves?: number
 }
 
 export default function ShaderBackground({
@@ -28,6 +33,11 @@ export default function ShaderBackground({
   currentSection = 0,
   chaosEnabled = false,
   chaosAmount = 0.5,
+  turbulenceEnabled = false,
+  turbulenceStrength = 0.5,
+  turbulenceScale = 2.0,
+  turbulenceSpeed = 1.0,
+  turbulenceOctaves = 2,
 }: ShaderBackgroundProps) {
   // Load color schemes from settings hook - this will reactively update
   const { settings } = useShaderSettings()
@@ -56,12 +66,30 @@ export default function ShaderBackground({
     turbulence: 0,
   })
 
+  // Detect if device is mobile for performance optimization
+  const isMobile = useMemo(() => {
+    if (typeof window === 'undefined') return false
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+           window.innerWidth < 768
+  }, [])
+
   // Update chaos values using noise-driven drift
   useEffect(() => {
     let animationFrame: number
     let lastTime = Date.now()
+    let frameCount = 0
+    // Reduce update frequency on mobile: update every 3rd frame (~20fps instead of 60fps)
+    const updateInterval = isMobile ? 3 : 1
 
     const updateChaos = () => {
+      frameCount++
+      
+      // Skip frames on mobile for better performance
+      if (frameCount % updateInterval !== 0) {
+        animationFrame = requestAnimationFrame(updateChaos)
+        return
+      }
+      
       const now = Date.now()
       const deltaTime = (now - lastTime) / 1000
       lastTime = now
@@ -116,7 +144,7 @@ export default function ShaderBackground({
     return () => {
       if (animationFrame) cancelAnimationFrame(animationFrame)
     }
-  }, [audioVolume, audioBass, audioMid, audioTreble, audioFFTEnergy, audioTransient, audioSpectralCentroid])
+  }, [audioVolume, audioBass, audioMid, audioTreble, audioFFTEnergy, audioTransient, audioSpectralCentroid, isMobile])
 
   // Audio energy metrics for advanced modulation
   const audioEnergy = (audioVolume + audioBass + audioMid + audioTreble) / 4

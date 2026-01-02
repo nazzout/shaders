@@ -15,6 +15,11 @@ interface WarpedGradientBackgroundProps {
   time: number           // animation time for coordination
   chaosEnabled: boolean
   chaosAmount: number    // 0-1
+  turbulenceEnabled: boolean
+  turbulenceStrength: number // 0-1
+  turbulenceScale: number    // 0.25-5
+  turbulenceSpeed: number    // 0-3
+  turbulenceOctaves: number  // 1-4
 }
 
 export function WarpedGradientBackground({
@@ -26,6 +31,11 @@ export function WarpedGradientBackground({
   time,
   chaosEnabled,
   chaosAmount,
+  turbulenceEnabled,
+  turbulenceStrength,
+  turbulenceScale,
+  turbulenceSpeed,
+  turbulenceOctaves,
 }: WarpedGradientBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const glRef = useRef<WebGLRenderingContext | null>(null)
@@ -66,6 +76,11 @@ export function WarpedGradientBackground({
       uniform vec3 u_colorChroma;
       uniform float u_chaosEnabled;
       uniform float u_chaosAmount;
+      uniform float u_turbulenceEnabled;
+      uniform float u_turbulenceStrength;
+      uniform float u_turbulenceScale;
+      uniform float u_turbulenceSpeed;
+      uniform float u_turbulenceOctaves;
       
       // Noise function for organic motion
       float hash(vec2 p) {
@@ -163,9 +178,37 @@ export function WarpedGradientBackground({
         return baseGradient;
       }
       
+      // Multi-octave turbulence function
+      vec2 turbulence(vec2 uv, float time) {
+        vec2 displacement = vec2(0.0);
+        float amplitude = 1.0;
+        float frequency = 1.0;
+        
+        for (float i = 0.0; i < 4.0; i++) {
+          if (i >= u_turbulenceOctaves) break;
+          
+          vec2 p = uv * u_turbulenceScale * frequency + time * u_turbulenceSpeed * 0.1;
+          float n1 = noise(p);
+          float n2 = noise(p + vec2(5.2, 1.3));
+          
+          displacement += vec2(n1 - 0.5, n2 - 0.5) * amplitude;
+          
+          frequency *= 2.0;
+          amplitude *= 0.5;
+        }
+        
+        return displacement * u_turbulenceStrength;
+      }
+      
       void main() {
         vec2 uv = v_uv;
         float time = u_time;
+        
+        // Apply turbulence as initial UV distortion (domain warping)
+        if (u_turbulenceEnabled > 0.5) {
+          vec2 turbDisplacement = turbulence(uv, time);
+          uv = uv + turbDisplacement;
+        }
         
         // Apply chaos temporal desync
         if (u_chaosEnabled > 0.5) {
@@ -281,6 +324,11 @@ export function WarpedGradientBackground({
       u_colorChroma: gl.getUniformLocation(program, "u_colorChroma"),
       u_chaosEnabled: gl.getUniformLocation(program, "u_chaosEnabled"),
       u_chaosAmount: gl.getUniformLocation(program, "u_chaosAmount"),
+      u_turbulenceEnabled: gl.getUniformLocation(program, "u_turbulenceEnabled"),
+      u_turbulenceStrength: gl.getUniformLocation(program, "u_turbulenceStrength"),
+      u_turbulenceScale: gl.getUniformLocation(program, "u_turbulenceScale"),
+      u_turbulenceSpeed: gl.getUniformLocation(program, "u_turbulenceSpeed"),
+      u_turbulenceOctaves: gl.getUniformLocation(program, "u_turbulenceOctaves"),
     }
 
     // Handle resize
@@ -339,6 +387,11 @@ export function WarpedGradientBackground({
       gl.uniform3f(uniformsRef.current.u_colorChroma, ...colorChroma)
       gl.uniform1f(uniformsRef.current.u_chaosEnabled, chaosEnabled ? 1.0 : 0.0)
       gl.uniform1f(uniformsRef.current.u_chaosAmount, chaosAmount)
+      gl.uniform1f(uniformsRef.current.u_turbulenceEnabled, turbulenceEnabled ? 1.0 : 0.0)
+      gl.uniform1f(uniformsRef.current.u_turbulenceStrength, turbulenceStrength)
+      gl.uniform1f(uniformsRef.current.u_turbulenceScale, turbulenceScale)
+      gl.uniform1f(uniformsRef.current.u_turbulenceSpeed, turbulenceSpeed)
+      gl.uniform1f(uniformsRef.current.u_turbulenceOctaves, turbulenceOctaves)
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
 
@@ -351,7 +404,7 @@ export function WarpedGradientBackground({
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [colors, depth, ripple, audioEnergy, audioTransient, time, chaosEnabled, chaosAmount])
+  }, [colors, depth, ripple, audioEnergy, audioTransient, time, chaosEnabled, chaosAmount, turbulenceEnabled, turbulenceStrength, turbulenceScale, turbulenceSpeed, turbulenceOctaves])
 
   return <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 }

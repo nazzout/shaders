@@ -26,15 +26,17 @@ const COLOR_FIELDS = [
 ]
 
 export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProps) {
-  const { settings, updateSection, setActiveEffect, updateMembrane, updateNodalParticles, updateChaos, resetToDefaults } = useShaderSettings()
+  const { settings, updateSection, setActiveEffect, updateMembrane, updateNodalParticles, updateChaos, updateTurbulence, resetToDefaults } = useShaderSettings()
   
   // Accordion state - all collapsed by default
   const [openPanels, setOpenPanels] = useState<{
     chaos: boolean
+    turbulence: boolean
     membrane: boolean
     nodalParticles: boolean
   }>({
     chaos: false,
+    turbulence: false,
     membrane: false,
     nodalParticles: false,
   })
@@ -48,6 +50,18 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
     setOpenPanels(prev => ({
       ...prev,
       chaos: newEnabled,
+    }))
+  }
+
+  // Handle turbulence toggle with accordion behavior
+  const handleTurbulenceToggle = () => {
+    const newEnabled = !settings.turbulence?.enabled
+    updateTurbulence({ enabled: newEnabled })
+    
+    // Open turbulence panel when enabled, close when disabled
+    setOpenPanels(prev => ({
+      ...prev,
+      turbulence: newEnabled,
     }))
   }
 
@@ -96,7 +110,7 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
   }
 
   // Toggle panel open/closed manually
-  const togglePanel = (panel: 'chaos' | 'membrane' | 'nodalParticles') => {
+  const togglePanel = (panel: 'chaos' | 'turbulence' | 'membrane' | 'nodalParticles') => {
     setOpenPanels(prev => ({
       ...prev,
       [panel]: !prev[panel],
@@ -108,7 +122,7 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
   return (
     <>
       {/* Panel */}
-      <div className="fixed right-0 top-0 z-[70] h-screen w-full max-w-md overflow-hidden bg-background/95 shadow-2xl backdrop-blur-md sm:max-w-lg">
+      <div data-ui-panel className="fixed right-0 top-0 z-[70] h-screen w-full max-w-md overflow-hidden bg-background/95 shadow-2xl backdrop-blur-md sm:max-w-lg">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-foreground/10 px-6 py-4">
           <h2 className="text-lg font-semibold text-foreground">Shader Settings</h2>
@@ -196,6 +210,141 @@ export function ShaderSettingsPanel({ isOpen, onClose }: ShaderSettingsPanelProp
                 </div>
               )}
             </div>
+
+            {/* Turbulence Controls */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => togglePanel('turbulence')}
+                  className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-foreground/70 hover:text-foreground transition-colors"
+                >
+                  <ChevronDown className={`h-4 w-4 transition-transform ${
+                    openPanels.turbulence ? "rotate-0" : "-rotate-90"
+                  }`} />
+                  Turbulence
+                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleTurbulenceToggle}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      settings.turbulence?.enabled ? "bg-purple-600" : "bg-foreground/20"
+                    }`}
+                    title="Toggle Turbulence"
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        settings.turbulence?.enabled ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                  <button
+                    onClick={() => updateTurbulence({ enabled: false, strength: 0.5, scale: 2.0, speed: 1.0, octaves: 2 })}
+                    className="text-xs text-foreground/60 hover:text-foreground transition-colors"
+                    title="Reset to defaults"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+              
+              {/* Collapsible Panel Content */}
+              {openPanels.turbulence && (
+                <div className="space-y-4 pl-6 border-l-2 border-foreground/10">
+                  {/* Strength Slider */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-foreground/80">Strength</label>
+                      <span className="font-mono text-xs text-foreground/60">
+                        {(settings.turbulence?.strength ?? 0.5).toFixed(2)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={settings.turbulence?.strength ?? 0.5}
+                      onChange={(e) => updateTurbulence({ strength: parseFloat(e.target.value) })}
+                      className="w-full cursor-pointer"
+                      aria-label="Turbulence Strength"
+                    />
+                    <p className="text-xs text-foreground/50">
+                      Controls intensity of UV distortion
+                    </p>
+                  </div>
+
+                  {/* Scale Slider */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-foreground/80">Scale</label>
+                      <span className="font-mono text-xs text-foreground/60">
+                        {(settings.turbulence?.scale ?? 2.0).toFixed(2)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.25"
+                      max="5"
+                      step="0.01"
+                      value={settings.turbulence?.scale ?? 2.0}
+                      onChange={(e) => updateTurbulence({ scale: parseFloat(e.target.value) })}
+                      className="w-full cursor-pointer"
+                      aria-label="Turbulence Scale"
+                    />
+                    <p className="text-xs text-foreground/50">
+                      Controls size of distortion patterns
+                    </p>
+                  </div>
+
+                  {/* Speed Slider */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-foreground/80">Speed</label>
+                      <span className="font-mono text-xs text-foreground/60">
+                        {(settings.turbulence?.speed ?? 1.0).toFixed(2)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="3"
+                      step="0.01"
+                      value={settings.turbulence?.speed ?? 1.0}
+                      onChange={(e) => updateTurbulence({ speed: parseFloat(e.target.value) })}
+                      className="w-full cursor-pointer"
+                      aria-label="Turbulence Speed"
+                    />
+                    <p className="text-xs text-foreground/50">
+                      Controls animation speed of distortion
+                    </p>
+                  </div>
+
+                  {/* Octaves Slider */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-foreground/80">Octaves</label>
+                      <span className="font-mono text-xs text-foreground/60">
+                        {settings.turbulence?.octaves ?? 2}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="4"
+                      step="1"
+                      value={settings.turbulence?.octaves ?? 2}
+                      onChange={(e) => updateTurbulence({ octaves: parseInt(e.target.value, 10) })}
+                      className="w-full cursor-pointer"
+                      aria-label="Turbulence Octaves"
+                    />
+                    <p className="text-xs text-foreground/50">
+                      Controls detail/complexity of distortion
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Membrane 3D Effect Controls */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">

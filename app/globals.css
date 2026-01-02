@@ -119,10 +119,34 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    cursor: none;
   }
   body {
     @apply bg-background text-foreground;
+  }
+  
+  /* Custom cursor only on canvas/background areas */
+  [data-custom-cursor] {
+    cursor: none;
+  }
+  
+  /* Restore normal cursors for UI elements */
+  button,
+  a,
+  [role="button"],
+  label,
+  select {
+    cursor: pointer !important;
+  }
+  
+  input[type="range"] {
+    cursor: ew-resize !important;
+  }
+  
+  input[type="text"],
+  input[type="email"],
+  input[type="color"],
+  textarea {
+    cursor: text !important;
   }
 
   [data-scroll-container] {
