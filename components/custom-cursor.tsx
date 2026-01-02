@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 
 export function CustomCursor() {
   const outerRef = useRef<HTMLDivElement>(null)
@@ -8,6 +8,7 @@ export function CustomCursor() {
   const positionRef = useRef({ x: 0, y: 0 })
   const targetPositionRef = useRef({ x: 0, y: 0 })
   const isPointerRef = useRef(false)
+  const [isOverUI, setIsOverUI] = useState(false)
 
   useEffect(() => {
     let animationFrameId: number
@@ -35,6 +36,24 @@ export function CustomCursor() {
       targetPositionRef.current = { x: e.clientX, y: e.clientY }
 
       const target = e.target as HTMLElement
+      
+      // Check if hovering over UI elements
+      const isOverUIElement = 
+        target.closest('button') !== null ||
+        target.closest('a') !== null ||
+        target.closest('input') !== null ||
+        target.closest('select') !== null ||
+        target.closest('textarea') !== null ||
+        target.closest('[role="button"]') !== null ||
+        target.closest('[data-ui-panel]') !== null ||
+        target.tagName === 'BUTTON' ||
+        target.tagName === 'A' ||
+        target.tagName === 'INPUT' ||
+        target.tagName === 'SELECT' ||
+        target.tagName === 'TEXTAREA'
+      
+      setIsOverUI(isOverUIElement)
+      
       isPointerRef.current =
         window.getComputedStyle(target).cursor === "pointer" || target.tagName === "BUTTON" || target.tagName === "A"
     }
@@ -52,14 +71,18 @@ export function CustomCursor() {
     <>
       <div
         ref={outerRef}
-        className="pointer-events-none fixed left-0 top-0 z-50 mix-blend-difference will-change-transform"
+        className={`pointer-events-none fixed left-0 top-0 z-50 mix-blend-difference will-change-transform transition-opacity duration-200 ${
+          isOverUI ? "opacity-0" : "opacity-100"
+        }`}
         style={{ contain: "layout style paint" }}
       >
         <div className="h-4 w-4 rounded-full border-2 border-white" />
       </div>
       <div
         ref={innerRef}
-        className="pointer-events-none fixed left-0 top-0 z-50 mix-blend-difference will-change-transform"
+        className={`pointer-events-none fixed left-0 top-0 z-50 mix-blend-difference will-change-transform transition-opacity duration-200 ${
+          isOverUI ? "opacity-0" : "opacity-100"
+        }`}
         style={{ contain: "layout style paint" }}
       >
         <div className="h-2 w-2 rounded-full bg-white" />

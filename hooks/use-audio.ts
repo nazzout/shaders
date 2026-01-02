@@ -35,6 +35,24 @@ export function useAudio() {
 
   const enableAudio = useCallback(async () => {
     try {
+      // Check if getUserMedia API is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.warn(
+          "getUserMedia is not supported. " +
+          "This may be due to: " +
+          "1) Accessing via HTTP instead of HTTPS, " +
+          "2) Browser doesn't support the API, or " +
+          "3) Permissions are blocked."
+        )
+        return false
+      }
+
+      // Check if AudioContext is available
+      if (!window.AudioContext && !(window as any).webkitAudioContext) {
+        console.warn("Web Audio API is not supported in this browser.")
+        return false
+      }
+      
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
@@ -53,6 +71,15 @@ export function useAudio() {
       return true
     } catch (error) {
       console.error("Error accessing microphone:", error)
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError') {
+          console.warn("Microphone access was denied by the user.")
+        } else if (error.name === 'NotFoundError') {
+          console.warn("No microphone found on this device.")
+        } else if (error.name === 'NotSupportedError') {
+          console.warn("Microphone access is not supported (may require HTTPS).")
+        }
+      }
       return false
     }
   }, [])

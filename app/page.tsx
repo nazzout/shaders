@@ -34,6 +34,32 @@ function HomeContent() {
   const shaderContainerRef = useRef<HTMLDivElement>(null)
   const scrollThrottleRef = useRef<number>()
   const { audioData, isEnabled, enableAudio, disableAudio } = useAudio()
+  const [audioError, setAudioError] = useState<string | null>(null)
+  
+  const handleAudioToggle = async () => {
+    if (isEnabled) {
+      disableAudio()
+      setAudioError(null)
+    } else {
+      const success = await enableAudio()
+      if (!success) {
+        // Check if we're on HTTP (not HTTPS)
+        const isHTTP = window.location.protocol === 'http:'
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        
+        if (isHTTP && !isLocalhost) {
+          setAudioError('Microphone access requires HTTPS on mobile devices. Please use localhost or a secure connection.')
+        } else {
+          setAudioError('Could not access microphone. Please check permissions in your browser settings.')
+        }
+        
+        // Clear error after 5 seconds
+        setTimeout(() => setAudioError(null), 5000)
+      } else {
+        setAudioError(null)
+      }
+    }
+  }
 
   // Animation time for shader coordination
   useEffect(() => {
@@ -242,6 +268,7 @@ function HomeContent() {
       {webGLSupported === true ? (
         <div
           ref={shaderContainerRef}
+          data-custom-cursor
           className={`fixed inset-0 z-0 transition-opacity duration-700 ${isLoaded ? "opacity-100" : "opacity-0"}`}
           style={{ contain: "strict" }}
         >
@@ -262,6 +289,11 @@ function HomeContent() {
               time={time}
               chaosEnabled={settings.chaos?.enabled ?? false}
               chaosAmount={settings.chaos?.amount ?? 0.5}
+              turbulenceEnabled={settings.turbulence?.enabled ?? false}
+              turbulenceStrength={settings.turbulence?.strength ?? 0.5}
+              turbulenceScale={settings.turbulence?.scale ?? 2.0}
+              turbulenceSpeed={settings.turbulence?.speed ?? 1.0}
+              turbulenceOctaves={settings.turbulence?.octaves ?? 2}
             />
           ) : settings.activeEffect === 'membrane' ? (
             <WarpedGradientBackground
@@ -277,6 +309,11 @@ function HomeContent() {
               time={time}
               chaosEnabled={settings.chaos?.enabled ?? false}
               chaosAmount={settings.chaos?.amount ?? 0.5}
+              turbulenceEnabled={settings.turbulence?.enabled ?? false}
+              turbulenceStrength={settings.turbulence?.strength ?? 0.5}
+              turbulenceScale={settings.turbulence?.scale ?? 2.0}
+              turbulenceSpeed={settings.turbulence?.speed ?? 1.0}
+              turbulenceOctaves={settings.turbulence?.octaves ?? 2}
             />
           ) : (
             <ShaderBackground
@@ -290,11 +327,17 @@ function HomeContent() {
               currentSection={currentSection}
               chaosEnabled={settings.chaos?.enabled ?? false}
               chaosAmount={settings.chaos?.amount ?? 0.5}
+              turbulenceEnabled={settings.turbulence?.enabled ?? false}
+              turbulenceStrength={settings.turbulence?.strength ?? 0.5}
+              turbulenceScale={settings.turbulence?.scale ?? 2.0}
+              turbulenceSpeed={settings.turbulence?.speed ?? 1.0}
+              turbulenceOctaves={settings.turbulence?.octaves ?? 2}
             />
           )}
         </div>
       ) : webGLSupported === false ? (
         <div
+          data-custom-cursor
           className={`fixed inset-0 z-0 transition-opacity duration-700 ${isLoaded ? "opacity-100" : "opacity-0"}`}
           style={{
             background:
@@ -306,13 +349,13 @@ function HomeContent() {
       ) : null}
 
       <nav
-        className={`fixed left-0 right-0 top-0 z-50 flex items-center justify-end px-6 py-6 transition-opacity duration-700 md:px-12 ${
+        className={`fixed left-0 right-0 top-0 z-50 flex flex-col items-end gap-2 px-6 py-6 transition-opacity duration-700 md:px-12 ${
           isLoaded ? "opacity-100" : "opacity-0"
         }`}
       >
         <button
-          onClick={isEnabled ? disableAudio : enableAudio}
-          className="group relative flex items-center gap-2 rounded-lg bg-foreground/15 px-4 py-2 backdrop-blur-md transition-all duration-300 hover:scale-105 hover:bg-foreground/25"
+          onClick={handleAudioToggle}
+          className="group relative flex items-center gap-2 rounded-lg bg-foreground/15 px-4 py-2 backdrop-blur-md transition-all duration-300 hover:scale-105 hover:bg-foreground/25 active:scale-95"
         >
           <div className="relative h-2 w-2">
             <div
@@ -327,11 +370,18 @@ function HomeContent() {
             {isEnabled ? "Audio On" : "Audio Off"}
           </span>
         </button>
+        
+        {audioError && (
+          <div className="max-w-xs rounded-lg bg-red-500/90 px-4 py-2 text-xs text-white backdrop-blur-md animate-in fade-in slide-in-from-top-2">
+            {audioError}
+          </div>
+        )}
       </nav>
 
       <div
         ref={scrollContainerRef}
         data-scroll-container
+        data-custom-cursor
         className={`relative z-10 flex h-screen overflow-x-auto overflow-y-hidden transition-opacity duration-700 ${
           isLoaded ? "opacity-100" : "opacity-0"
         }`}
