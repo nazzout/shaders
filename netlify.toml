@@ -1,0 +1,20 @@
+[build]
+  command = "pnpm build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Ensure Node.js version compatible with Next.js 15.5.9
+[build.environment]
+  NODE_VERSION = "18.17.0"
+
+# Required for Next.js 15+ security patches (CVE-2025-55182)
+[context.production]
+  command = "pnpm install && pnpm build"
+
+[context.deploy-preview]
+  command = "pnpm install && pnpm build"
+
+[context.branch-deploy]
+  command = "pnpm install && pnpm build"
