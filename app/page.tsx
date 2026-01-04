@@ -2,7 +2,6 @@
 
 import dynamic from "next/dynamic"
 import { CustomCursor, CursorProvider, useCursorPosition } from "@/components/custom-cursor"
-import { HandTrackingProvider, useHandTrackingContext } from "@/components/hand-tracking-provider"
 import { GrainOverlay } from "@/components/grain-overlay"
 import { WorkSection } from "@/components/sections/work-section"
 import { ServicesSection } from "@/components/sections/services-section"
@@ -21,13 +20,8 @@ const ShaderBackground = dynamic(() => import("@/components/shader-background"),
   loading: () => null,
 })
 
-const HandParticles = dynamic(() => import("@/components/hand-particles").then(mod => ({ default: mod.HandParticles })), {
-  ssr: false,
-  loading: () => null,
-})
-
 function HomeContent() {
-  const { settings } = useShaderSettings()
+  const { settings, getSectionColors } = useShaderSettings()
   const { position: cursorPosition, isOverUI: isInteractingWithUI } = useCursorPosition()
   const [time, setTime] = useState(0)
 
@@ -42,7 +36,6 @@ function HomeContent() {
   const scrollThrottleRef = useRef<number>()
   const { audioData, isEnabled, enableAudio, disableAudio } = useAudio()
   const [audioError, setAudioError] = useState<string | null>(null)
-  const { isActive: isCameraActive, handsDetected, handData, stopCamera } = useHandTrackingContext()
   
   const handleAudioToggle = async () => {
     if (isEnabled) {
@@ -78,22 +71,6 @@ function HomeContent() {
     }
     updateTime()
   }, [])
-
-  // Handle hand particles toggle - stop camera when disabled
-  useEffect(() => {
-    if (!settings.handParticles?.enabled && isCameraActive) {
-      stopCamera()
-    }
-  }, [settings.handParticles?.enabled, isCameraActive, stopCamera])
-
-  // Cleanup camera on unmount
-  useEffect(() => {
-    return () => {
-      if (isCameraActive) {
-        stopCamera()
-      }
-    }
-  }, [isCameraActive, stopCamera])
 
   // Fade out scroll hint after 4 seconds
   useEffect(() => {
@@ -289,23 +266,6 @@ function HomeContent() {
         <GrainOverlay />
         <FloatingSettingsButton />
 
-        {/* Hand-Controlled Particles Layer */}
-        {settings.handParticles?.enabled && isCameraActive && handsDetected > 0 && (
-          <HandParticles
-            colors={{
-              swirlA: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.swirlA ?? '#1275d8',
-              swirlB: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.swirlB ?? '#e19136',
-              chromaBase: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.chromaBase ?? '#0066ff',
-            }}
-            handData={handData}
-            particleCount={settings.handParticles?.particleCount ?? 0.6}
-            particleSize={settings.handParticles?.particleSize ?? 0.5}
-            responseSpeed={settings.handParticles?.responseSpeed ?? 0.7}
-            time={time}
-            audioData={audioData}
-          />
-        )}
-
       {webGLSupported === true ? (
         <div
           ref={shaderContainerRef}
@@ -315,53 +275,45 @@ function HomeContent() {
         >
           {settings.activeEffect === 'nodalParticles' ? (
             <NodalParticlesGradient
-              colors={{
-                swirlA: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.swirlA ?? '#1275d8',
-                swirlB: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.swirlB ?? '#e19136',
-                chromaBase: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.chromaBase ?? '#0066ff',
-              }}
-              density={settings.nodalParticles?.density ?? 0.5}
-              size={settings.nodalParticles?.size ?? 0.4}
-              drift={settings.nodalParticles?.drift ?? 0.6}
-              influence={settings.nodalParticles?.influence ?? 0.5}
+              colors={getSectionColors(currentSection)}
+              density={settings.nodalParticles.density}
+              size={settings.nodalParticles.size}
+              drift={settings.nodalParticles.drift}
+              influence={settings.nodalParticles.influence}
               audioEnergy={audioData.fftEnergy}
               audioTransient={audioData.transient}
               audioBass={audioData.bass}
               time={time}
-              chaosEnabled={settings.chaos?.enabled ?? false}
-              chaosAmount={settings.chaos?.amount ?? 0.5}
-              turbulenceEnabled={settings.turbulence?.enabled ?? false}
-              turbulenceStrength={settings.turbulence?.strength ?? 0.5}
-              turbulenceScale={settings.turbulence?.scale ?? 2.0}
-              turbulenceSpeed={settings.turbulence?.speed ?? 1.0}
-              turbulenceOctaves={settings.turbulence?.octaves ?? 2}
+              chaosEnabled={settings.chaos.enabled}
+              chaosAmount={settings.chaos.amount}
+              turbulenceEnabled={settings.turbulence.enabled}
+              turbulenceStrength={settings.turbulence.strength}
+              turbulenceScale={settings.turbulence.scale}
+              turbulenceSpeed={settings.turbulence.speed}
+              turbulenceOctaves={settings.turbulence.octaves}
               cursorX={cursorPosition.x}
               cursorY={cursorPosition.y}
-              cursorStrength={settings.cursor?.strength ?? 0.35}
+              cursorStrength={settings.cursor.strength}
               isInteractingWithUI={isInteractingWithUI}
             />
           ) : settings.activeEffect === 'membrane' ? (
             <WarpedGradientBackground
-              colors={{
-                swirlA: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.swirlA ?? '#1275d8',
-                swirlB: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.swirlB ?? '#e19136',
-                chromaBase: settings.sections[['hero', 'work', 'services', 'about', 'contact'][currentSection] as keyof typeof settings.sections]?.chromaBase ?? '#0066ff',
-              }}
-              depth={settings.membrane?.depth ?? 0.3}
-              ripple={settings.membrane?.ripple ?? 0.5}
+              colors={getSectionColors(currentSection)}
+              depth={settings.membrane.depth}
+              ripple={settings.membrane.ripple}
               audioEnergy={audioData.fftEnergy}
               audioTransient={audioData.transient}
               time={time}
-              chaosEnabled={settings.chaos?.enabled ?? false}
-              chaosAmount={settings.chaos?.amount ?? 0.5}
-              turbulenceEnabled={settings.turbulence?.enabled ?? false}
-              turbulenceStrength={settings.turbulence?.strength ?? 0.5}
-              turbulenceScale={settings.turbulence?.scale ?? 2.0}
-              turbulenceSpeed={settings.turbulence?.speed ?? 1.0}
-              turbulenceOctaves={settings.turbulence?.octaves ?? 2}
+              chaosEnabled={settings.chaos.enabled}
+              chaosAmount={settings.chaos.amount}
+              turbulenceEnabled={settings.turbulence.enabled}
+              turbulenceStrength={settings.turbulence.strength}
+              turbulenceScale={settings.turbulence.scale}
+              turbulenceSpeed={settings.turbulence.speed}
+              turbulenceOctaves={settings.turbulence.octaves}
               cursorX={cursorPosition.x}
               cursorY={cursorPosition.y}
-              cursorStrength={settings.cursor?.strength ?? 0.35}
+              cursorStrength={settings.cursor.strength}
               isInteractingWithUI={isInteractingWithUI}
             />
           ) : (
@@ -374,13 +326,13 @@ function HomeContent() {
               audioFFTEnergy={audioData.fftEnergy}
               audioSpectralCentroid={audioData.spectralCentroid}
               currentSection={currentSection}
-              chaosEnabled={settings.chaos?.enabled ?? false}
-              chaosAmount={settings.chaos?.amount ?? 0.5}
-              turbulenceEnabled={settings.turbulence?.enabled ?? false}
-              turbulenceStrength={settings.turbulence?.strength ?? 0.5}
-              turbulenceScale={settings.turbulence?.scale ?? 2.0}
-              turbulenceSpeed={settings.turbulence?.speed ?? 1.0}
-              turbulenceOctaves={settings.turbulence?.octaves ?? 2}
+              chaosEnabled={settings.chaos.enabled}
+              chaosAmount={settings.chaos.amount}
+              turbulenceEnabled={settings.turbulence.enabled}
+              turbulenceStrength={settings.turbulence.strength}
+              turbulenceScale={settings.turbulence.scale}
+              turbulenceSpeed={settings.turbulence.speed}
+              turbulenceOctaves={settings.turbulence.octaves}
             />
           )}
         </div>
@@ -467,11 +419,9 @@ function HomeContent() {
 
 export default function Home() {
   return (
-    <CursorProvider>
+        <CursorProvider>
       <ShaderSettingsProvider>
-        <HandTrackingProvider>
           <HomeContent />
-        </HandTrackingProvider>
       </ShaderSettingsProvider>
     </CursorProvider>
   )
