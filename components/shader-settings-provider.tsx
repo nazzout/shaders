@@ -11,6 +11,10 @@ export interface SectionColors {
 }
 
 export type ActiveEffect = 'none' | 'membrane' | 'nodalParticles'
+export type SectionKey = 'hero' | 'work' | 'services' | 'about' | 'contact'
+
+// Section keys array for iteration and indexing
+export const SECTION_KEYS: readonly SectionKey[] = ['hero', 'work', 'services', 'about', 'contact'] as const
 
 export interface ShaderSettings {
   sections: {
@@ -44,13 +48,6 @@ export interface ShaderSettings {
   }
   cursor: {
     strength: number // 0-1, cursor influence intensity
-  }
-  handParticles: {
-    enabled: boolean      // Toggle hand particles on/off
-    cameraActive: boolean // Camera is currently running
-    particleCount: number // 0-1, density of particles
-    particleSize: number  // 0-1, size of particles
-    responseSpeed: number // 0-1, how quickly particles respond to hand movement
   }
 }
 
@@ -116,14 +113,7 @@ const DEFAULT_SETTINGS: ShaderSettings = {
     octaves: 2,
   },
   cursor: {
-    strength: 0.35,
-  },
-  handParticles: {
-    enabled: false,
-    cameraActive: false,
-    particleCount: 0.6,
-    particleSize: 0.5,
-    responseSpeed: 0.7,
+    strength: 1.0, // Always maximum - cursor interaction enabled at full strength
   },
 }
 
@@ -139,8 +129,8 @@ interface ShaderSettingsContextType {
   updateChaos: (params: Partial<ShaderSettings["chaos"]>) => void
   updateTurbulence: (params: Partial<ShaderSettings["turbulence"]>) => void
   updateCursor: (params: Partial<ShaderSettings["cursor"]>) => void
-  updateHandParticles: (params: Partial<ShaderSettings["handParticles"]>) => void
   resetToDefaults: () => void
+  getSectionColors: (index: number) => SectionColors
 }
 
 const ShaderSettingsContext = createContext<ShaderSettingsContextType | undefined>(undefined)
@@ -156,36 +146,16 @@ export function ShaderSettingsProvider({ children }: { children: ReactNode }) {
       if (stored) {
         const parsed = JSON.parse(stored)
         
-        // Migration: Convert old boolean-based settings to activeEffect
-        let activeEffect: ActiveEffect = parsed.activeEffect || 'none'
-        if (!parsed.activeEffect) {
-          // Migrate from old format
-          if (parsed.membrane?.enabled) {
-            activeEffect = 'membrane'
-          } else if (parsed.nodalParticles?.enabled) {
-            activeEffect = 'nodalParticles'
-          }
-        }
-        
         // Merge with defaults to ensure all properties exist
         setSettings({
           ...DEFAULT_SETTINGS,
+          ...parsed,
           sections: { ...DEFAULT_SETTINGS.sections, ...parsed.sections },
-          activeEffect,
-          membrane: {
-            depth: parsed.membrane?.depth ?? DEFAULT_SETTINGS.membrane.depth,
-            ripple: parsed.membrane?.ripple ?? DEFAULT_SETTINGS.membrane.ripple,
-          },
-          nodalParticles: {
-            density: parsed.nodalParticles?.density ?? DEFAULT_SETTINGS.nodalParticles.density,
-            size: parsed.nodalParticles?.size ?? DEFAULT_SETTINGS.nodalParticles.size,
-            drift: parsed.nodalParticles?.drift ?? DEFAULT_SETTINGS.nodalParticles.drift,
-            influence: parsed.nodalParticles?.influence ?? DEFAULT_SETTINGS.nodalParticles.influence,
-          },
-          chaos: { ...DEFAULT_SETTINGS.chaos, ...(parsed.chaos || {}) },
-          turbulence: { ...DEFAULT_SETTINGS.turbulence, ...(parsed.turbulence || {}) },
-          cursor: { ...DEFAULT_SETTINGS.cursor, ...(parsed.cursor || {}) },
-          handParticles: { ...DEFAULT_SETTINGS.handParticles, ...(parsed.handParticles || {}) },
+          membrane: { ...DEFAULT_SETTINGS.membrane, ...parsed.membrane },
+          nodalParticles: { ...DEFAULT_SETTINGS.nodalParticles, ...parsed.nodalParticles },
+          chaos: { ...DEFAULT_SETTINGS.chaos, ...parsed.chaos },
+          turbulence: { ...DEFAULT_SETTINGS.turbulence, ...parsed.turbulence },
+          cursor: { ...DEFAULT_SETTINGS.cursor, ...parsed.cursor },
         })
       }
     } catch (error) {
@@ -289,25 +259,28 @@ export function ShaderSettingsProvider({ children }: { children: ReactNode }) {
     saveSettings(newSettings)
   }
 
-  // Update hand particles parameters
-  const updateHandParticles = (params: Partial<ShaderSettings["handParticles"]>) => {
-    const newSettings = {
-      ...settings,
-      handParticles: {
-        ...settings.handParticles,
-        ...params,
-      },
-    }
-    saveSettings(newSettings)
-  }
 
   // Reset to default settings
   const resetToDefaults = () => {
     saveSettings(DEFAULT_SETTINGS)
   }
 
+  /**
+   * Get colors for a section by index (0-4)
+   * @param index - Section index (0=hero, 1=work, 2=services, 3=about, 4=contact)
+   * @returns Section colors with defaults applied
+   */
+  const getSectionColors = (index: number): SectionColors => {
+    const sectionKey = SECTION_KEYS[index]
+    if (!sectionKey) {
+      console.warn(`Invalid section index: ${index}, falling back to hero`)
+      return settings.sections.hero || DEFAULT_SETTINGS.sections.hero
+    }
+    return settings.sections[sectionKey] || DEFAULT_SETTINGS.sections[sectionKey]
+  }
+
   return (
-    <ShaderSettingsContext.Provider value={{ settings, isLoaded, updateSection, setActiveEffect, updateMembrane, updateNodalParticles, updateChaos, updateTurbulence, updateCursor, updateHandParticles, resetToDefaults }}>
+    <ShaderSettingsContext.Provider value={{ settings, isLoaded, updateSection, setActiveEffect, updateMembrane, updateNodalParticles, updateChaos, updateTurbulence, updateCursor, resetToDefaults, getSectionColors }}>
       {children}
     </ShaderSettingsContext.Provider>
   )

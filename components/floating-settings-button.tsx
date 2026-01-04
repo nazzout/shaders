@@ -2,7 +2,7 @@
 
 import { Settings } from "lucide-react"
 import { useState } from "react"
-import { ShaderSettingsPanel } from "./shader-settings-panel"
+import { ShaderLauncher } from "./shader-launcher"
 
 export function FloatingSettingsButton() {
   const [isOpen, setIsOpen] = useState(false)
@@ -17,7 +17,7 @@ export function FloatingSettingsButton() {
         <Settings className="h-6 w-6 text-foreground/90 transition-transform duration-300 group-hover:rotate-90" />
       </button>
 
-      <ShaderSettingsPanel isOpen={isOpen} onClose={() => setIsOpen(false)} />
+      <ShaderLauncher isOpen={isOpen} onClose={() => setIsOpen(false)} />
     </>
   )
 }
