@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { ModalContainer } from "./modal-container"
 import { LauncherMain } from "./launcher-main"
 import { ChromaModal } from "./modals/chroma-modal"
@@ -18,14 +18,15 @@ interface ShaderLauncherProps {
 export function ShaderLauncher({ isOpen, onClose }: ShaderLauncherProps) {
   const [currentModal, setCurrentModal] = useState<ModalType>('launcher')
   const [colorwaySection, setColorwaySection] = useState<'hero' | 'work' | 'services' | 'about' | 'contact'>('hero')
+  const [modalResetFn, setModalResetFn] = useState<(() => void) | null>(null)
 
   // Handle modal navigation
-  const openModal = (modal: ModalType, section?: 'hero' | 'work' | 'services' | 'about' | 'contact') => {
+  const openModal = useCallback((modal: ModalType, section?: 'hero' | 'work' | 'services' | 'about' | 'contact') => {
     if (modal === 'colorway' && section) {
       setColorwaySection(section)
     }
     setCurrentModal(modal)
-  }
+  }, [])
 
   const closeAllModals = () => {
     setCurrentModal('launcher')
@@ -47,7 +48,7 @@ export function ShaderLauncher({ isOpen, onClose }: ShaderLauncherProps) {
         onClose={closeAllModals}
         isMobileLauncher={true}
       >
-        <LauncherMain onOpenModal={openModal} />
+        <LauncherMain onOpenModal={openModal} onClose={closeAllModals} />
       </ModalContainer>
     )
   }
@@ -61,16 +62,26 @@ export function ShaderLauncher({ isOpen, onClose }: ShaderLauncherProps) {
     colorway: 'Colorway',
   }
 
+  const handleReset = () => {
+    if (modalResetFn) {
+      modalResetFn()
+    }
+  }
+
+  const handleModalMount = (resetFn: () => void) => {
+    setModalResetFn(() => resetFn)
+  }
+
   const renderModalContent = () => {
     switch (currentModal) {
       case 'chroma':
-        return <ChromaModal />
+        return <ChromaModal onMount={handleModalMount} />
       case 'distortion':
-        return <DistortionModal />
+        return <DistortionModal onMount={handleModalMount} />
       case 'membrane':
-        return <MembraneModal />
+        return <MembraneModal onMount={handleModalMount} />
       case 'fieldLines':
-        return <FieldLinesModal />
+        return <FieldLinesModal onMount={handleModalMount} />
       case 'colorway':
         return <ColorwayModal section={colorwaySection} />
       default:
@@ -84,6 +95,7 @@ export function ShaderLauncher({ isOpen, onClose }: ShaderLauncherProps) {
       onClose={backToLauncher}
       title={modalTitles[currentModal as keyof typeof modalTitles]}
       isMobileLauncher={false}
+      onReset={handleReset}
     >
       {renderModalContent()}
     </ModalContainer>

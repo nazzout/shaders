@@ -1,9 +1,21 @@
 "use client"
 
 import { useShaderSettings } from "@/components/shader-settings-provider"
+import { useEffect } from "react"
 
-export function DistortionModal() {
+interface DistortionModalProps {
+  onMount?: (resetFn: () => void) => void
+}
+
+export function DistortionModal({ onMount }: DistortionModalProps = {}) {
   const { settings, updateTurbulence } = useShaderSettings()
+
+  useEffect(() => {
+    const handleReset = () => {
+      updateTurbulence({ enabled: false, strength: 0.5, scale: 2.0, speed: 1.0, octaves: 2 })
+    }
+    onMount?.(handleReset)
+  }, [onMount, updateTurbulence])
 
   const Slider = ({ 
     label, 
@@ -33,57 +45,39 @@ export function DistortionModal() {
         max={max}
         step={step}
         value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
+        onChange={(e) => {
+          e.stopPropagation()
+          onChange(parseFloat(e.target.value))
+        }}
         className="w-full h-3 cursor-pointer"
         style={{ accentColor: 'currentColor' }}
       />
     </div>
   )
 
-  const Toggle = ({
-    label,
-    enabled,
-    onToggle
-  }: {
-    label: string
-    enabled: boolean
-    onToggle: () => void
-  }) => (
-    <button
-      onClick={onToggle}
-      className={`
-        w-full flex items-center justify-between rounded-xl px-4 py-3 transition-all duration-200
-        ${enabled ? "bg-foreground/20 ring-2 ring-foreground/30" : "bg-foreground/10 hover:bg-foreground/15"}
-      `}
-    >
-      <span className="text-sm font-medium text-foreground">{label}</span>
-      <div className={`
-        w-11 h-6 rounded-full transition-colors duration-200
-        ${enabled ? "bg-foreground/60" : "bg-foreground/30"}
-      `}>
-        <div className={`
-          h-full aspect-square rounded-full bg-white shadow-md transition-transform duration-200
-          ${enabled ? "translate-x-full" : "translate-x-0"}
-        `} />
-      </div>
-    </button>
-  )
-
   return (
     <div className="px-6 py-6 space-y-6">
-      <p className="text-sm text-foreground/60">
-        UV distortion with controllable noise patterns. Adds organic, flowing movement to the visual effects.
-      </p>
-
       {/* Turbulence Section */}
       <div className="space-y-4">
-        <Toggle
-          label="Enable Turbulence"
-          enabled={settings.turbulence.enabled}
-          onToggle={() => updateTurbulence({ enabled: !settings.turbulence.enabled })}
-        />
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            updateTurbulence({ enabled: !settings.turbulence.enabled })
+          }}
+          className={`
+            w-full rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200
+            ${settings.turbulence.enabled
+              ? "bg-purple-600/20 text-purple-600 ring-2 ring-purple-600/30" 
+              : "bg-foreground/10 text-foreground hover:bg-foreground/15"
+            }
+          `}
+        >
+          {settings.turbulence.enabled ? 'Disable Turbulence' : 'Enable Turbulence'}
+        </button>
+        
         {settings.turbulence.enabled && (
-          <div className="pt-2 space-y-4">
+          <div className="space-y-4">
             <Slider
               label="Strength"
               value={settings.turbulence.strength}
@@ -113,18 +107,6 @@ export function DistortionModal() {
             />
           </div>
         )}
-      </div>
-
-      <div className="pt-4 border-t border-foreground/10">
-        <p className="text-xs text-foreground/50">
-          <strong>Strength:</strong> Intensity of UV distortion<br />
-          <strong>Scale:</strong> Size of distortion patterns<br />
-          <strong>Speed:</strong> Animation speed<br />
-          <strong>Octaves:</strong> Detail/complexity level
-        </p>
-        <p className="text-xs text-foreground/50 mt-3">
-          <strong>Note:</strong> Turbulence stacks on top of any active waveform (Membrane, Field Lines, or base gradient).
-        </p>
       </div>
     </div>
   )
